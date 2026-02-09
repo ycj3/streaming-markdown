@@ -1,7 +1,29 @@
-# Changelog
+# 更新日志
 
 ## 1.0.0 (2026-02-06)
 
-### Features
-- Initial release of @ycj3/streaming-markdown.
-- Support for streaming markdown block rendering in ArkTS.
+### ✨ 新功能
+- **初始版本发布**：`@ycj3/streaming-markdown` 首次发布
+- **流式渲染**：支持字符级增量解析，实时渲染 Markdown 内容
+- **块级架构**：基于不可变 diff 的高效更新机制
+
+### 📝 支持的 Markdown 语法
+- **标题**：H1 ~ H6 (`#` ~ `######`)
+- **段落**：支持行内样式混排
+- **行内样式**：
+  - 粗体 (`**text**`)、斜体 (`*text*`)、粗斜体 (`***text***`)
+  - 删除线 (`~~text~~`)
+  - 行内代码 (`` `code` ``)
+  - 链接 (`[text](url)`)
+- **列表**：
+  - 无序列表 (`- item`)
+  - 有序列表 (`1. item`)
+  - 任务列表 (`- [x]` / `- [ ]`)
+- **引用块**：`> quote`
+- **分割线**：`---`
+- **代码块**：支持语法高亮和复制按钮
+
+### 🎯 适用场景
+- LLM 对话界面的实时流式输出
+- 实时日志渲染
+- 任何需要增量渲染 Markdown 的场景

@@ -8,17 +8,21 @@ A streaming markdown renderer for HarmonyOS ArkTS, designed for real-time LLM ch
 
 ## Features
 
-- **Streaming Parser**: Incrementally renders markdown as characters arrive
-- **Block-based Architecture**: Efficient updates via immutable diffs
-- **Rich Text Support**:
+- **Streaming Parser**: Incrementally renders markdown as characters arrive (e.g., LLM output)
+- **Block-based Architecture**: Efficient updates via immutable diffs, only re-renders changed parts
+- **Supported Markdown Syntax**:
   - Headings (`# H1` to `###### H6`)
-  - Paragraphs with inline styles
-  - **Bold** (`**text**`)
-  - _Italic_ (`*text*`)
-  - **_Bold + Italic_** (`***text***`)
+  - Paragraphs with rich inline styles
+  - **Bold** (`**text**`), _Italic_ (`*text*`), **_Bold + Italic_** (`***text***`)
   - ~~Strikethrough~~ (`~~text~~`)
   - Inline code (`` `code` ``)
-  - Fenced code blocks (` ```lang ``` `)
+  - [Links](https://example.com) (`[text](url)`)
+  - Unordered lists (`- item`)
+  - Ordered lists (`1. item`)
+  - Task lists (`- [x] Done` / `- [ ] Todo`)
+  - Blockquotes (`> quote`)
+  - Horizontal rules (`---`)
+  - Fenced code blocks (` ```lang `)
     - Copy button
     - Syntax highlighting
 
@@ -45,8 +49,25 @@ Add to your project's `entry/oh-package.json5`:
 ```json5
 {
   dependencies: {
-    "@ycj3/streaming-markdown": "file:../streaming-markdown",
+    "@ycj3/streaming-markdown": "file:../../streaming-markdown",
   },
+}
+```
+
+Also, add the module declaration in your project's `build-profile.json5`:
+
+```json5
+{
+  modules: [
+    {
+      name: "entry",
+      srcPath: "./entry"
+    },
+    {
+      name: "streaming_markdown",
+      srcPath: "../streaming-markdown"
+    }
+  ]
 }
 ```
 
