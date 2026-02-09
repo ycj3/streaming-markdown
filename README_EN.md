@@ -175,4 +175,4 @@ The parser uses a state machine with diff-based updates for efficient rendering 
 
 ## License
 
-MIT
+Apache-2.0
