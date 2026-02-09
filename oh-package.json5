@@ -7,6 +7,6 @@
   "homepage": "https://github.com/ycj3",
   "repository": "https://github.com/ycj3/streaming-markdown",
   "keywords": ["streaming", "markdown", "arkts", "llm"],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {}
 }
