@@ -1,0 +1,19 @@
+# Build outputs
+build/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+
+# Dependencies
+oh_modules/
+
+# Local configuration
+local.properties
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
