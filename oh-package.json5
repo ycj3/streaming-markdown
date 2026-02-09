@@ -1,0 +1,12 @@
+{
+  "name": "@ycj3/streaming-markdown",
+  "version": "1.0.0",
+  "author": "Carlson carlsonyuandev@gmail.com",
+  "description": "Streaming markdown block renderer for ArkTS",
+  "main": "src/main/ets/index.ets",
+  "homepage": "https://github.com/ycj3",
+  "repository": "https://github.com/ycj3/streaming-markdown",
+  "keywords": ["streaming", "markdown", "arkts", "llm"],
+  "license": "MIT",
+  "dependencies": {}
+}

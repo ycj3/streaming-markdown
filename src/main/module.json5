@@ -1,0 +1,7 @@
+{
+  module: {
+    name: "streaming_markdown",
+    type: "har",
+    deviceTypes: ["phone", "tablet", "2in1"],
+  },
+}
