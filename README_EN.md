@@ -8,8 +8,12 @@ A streaming markdown renderer for HarmonyOS ArkTS, designed for real-time LLM ch
 
 ## Features
 
-- **Streaming Parser**: Incrementally renders markdown as characters arrive (e.g., LLM output)
+- **Real-time Streaming**: Supports real-time streaming content like LLM output, updates instantly as input arrives
 - **Block-based Architecture**: Efficient updates via immutable diffs, only re-renders changed parts
+- **Rendering Animation Modes**: Three rendering granularities adapting to different LLM vendor styles
+  - `char` - Character by character (default, smooth and detailed)
+  - `word` - Word by word (similar to GPT-4 style)
+  - `chunk` - Sentence/chunk by chunk (similar to Claude style)
 - **Supported Markdown Syntax**:
   - Headings (`# H1` to `###### H6`)
   - Paragraphs with rich inline styles
@@ -77,17 +81,17 @@ Then sync the project in DevEco Studio.
 
 ## Usage
 
+### Basic Usage
+
+Just pass `text` and `mode`, the component handles streaming internally:
+
 ```typescript
-import { StreamingMarkdown, createStreamingMarkdown } from '@ycj3/streaming-markdown'
+import { StreamingMarkdown } from '@ycj3/streaming-markdown'
 
 @Entry
 @Component
 struct MyPage {
-  private stream = createStreamingMarkdown()
-
-  aboutToAppear() {
-    // Simulate streaming markdown (e.g., from LLM)
-    const markdown = `# Hello StreamingMarkdown
+  private markdown = `# Hello StreamingMarkdown
 
 This is **bold** and *italic* text.
 
@@ -95,21 +99,13 @@ This is **bold** and *italic* text.
 console.log("Hello World");
 \`\`\`
 `
-    let i = 0
-    const timer = setInterval(() => {
-      if (i >= markdown.length) {
-        clearInterval(timer)
-        this.stream.close()  // Finalize parsing
-        return
-      }
-      this.stream.push(markdown.charAt(i))  // Push char by char
-      i++
-    }, 30)
-  }
 
   build() {
     Scroll() {
-      StreamingMarkdown({ controller: this.stream })
+      StreamingMarkdown({ 
+        text: this.markdown,
+        mode: 'char'  // render mode: char | word | chunk
+      })
         .padding(16)
     }
     .width('100%')
@@ -118,35 +114,90 @@ console.log("Hello World");
 }
 ```
 
+### Different Rendering Modes
+
+```typescript
+import { StreamingMarkdown, StreamingMode } from '@ycj3/streaming-markdown'
+
+@Entry
+@Component
+struct MyPage {
+  @State mode: StreamingMode = 'word'
+  // Use key to force component re-creation for replay
+  @State renderKey: number = 0
+
+  build() {
+    Column() {
+      // Mode switch buttons
+      Row() {
+        Button('Char').onClick(() => {
+          this.mode = 'char'
+          this.renderKey++
+        })
+        Button('Word').onClick(() => {
+          this.mode = 'word'
+          this.renderKey++
+        })
+        Button('Chunk').onClick(() => {
+          this.mode = 'chunk'
+          this.renderKey++
+        })
+        Button('Replay').onClick(() => this.renderKey++)
+      }
+
+      // Streaming component - use .key() to force re-creation
+      StreamingMarkdown({
+        text: '# Hello World\n\nThis is a **test**.',
+        mode: this.mode,
+        interval: 30,        // render interval (ms)
+        onComplete: () => {
+          console.log('Done!')
+        }
+      })
+        .key(`markdown_${this.mode}_${this.renderKey}`)
+    }
+  }
+}
+```
+
+### Render Modes
+
+| Mode | Effect | Use Case |
+|------|--------|----------|
+| `char` | Character by character | Default, smooth |
+| `word` | Word by word | Similar to GPT-4 |
+| `chunk` | Sentence/chunk by chunk | Similar to Claude |
+
 ---
 
 ## API Reference
 
-### `createStreamingMarkdown()`
-
-Creates a new `StreamingMarkdownController` instance.
-
-**Returns**: `StreamingMarkdownController`
-
-### `StreamingMarkdownController`
-
-The controller for managing markdown streaming.
-
-| Method                | Description                                      |
-| --------------------- | ------------------------------------------------ |
-| `push(char: string)`  | Process a single character incrementally         |
-| `close()`             | Finalize parsing, handles incomplete inline code |
-| `subscribe(listener)` | Listen for block diff updates                    |
-
 ### `StreamingMarkdown` Component
 
-The UI component that renders the markdown blocks.
+Streaming markdown render component, internally encapsulates controller and timer logic.
 
 **Props**:
 
-| Prop         | Type                          | Description             |
-| ------------ | ----------------------------- | ----------------------- |
-| `controller` | `StreamingMarkdownController` | The controller instance |
+| Property | Type | Default | Description |
+| -------- | ---- | ------- | ----------- |
+| `text` | `string` | `''` | Markdown text to render |
+| `mode` | `'char' \| 'word' \| 'chunk'` | `'char'` | Render animation mode |
+| `interval` | `number` | `30` | Render interval (milliseconds) |
+| `onComplete` | `() => void` | - | Completion callback |
+
+**Replay**: Use `ForEach` + `key` pattern to force component re-creation:
+
+```typescript
+@State renderKey: number = 0
+
+// Click Replay
+this.renderKey++
+
+// Render
+ForEach([this.renderKey], () => {
+  StreamingMarkdown({ text, mode, interval })
+}, (key) => key.toString())
+```
 
 ---
 

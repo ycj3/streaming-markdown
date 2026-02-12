@@ -8,9 +8,13 @@ HarmonyOS ArkTS 流式 Markdown 渲染器，专为实时 LLM 对话界面设计�
 
 ## 功能特性
 
-- **流式解析**: 字符级增量渲染，支持实时流式内容（如 LLM 输出）
+- **实时流式渲染**: 支持 LLM 等实时流式内容，内容随输入即时更新
 - **块级架构**: 通过不可变 diff 实现高效更新，只重绘变化的部分
-- **支持的 Markdown 语法**:
+- **渲染动画模式**: 支持三种渲染粒度，适配不同 LLM 厂商风格
+  - `char` - 字符逐个显示（默认，细腻流畅）
+  - `word` - 单词逐个显示（类似 GPT-4 风格）
+  - `chunk` - 句子/块逐个显示（类似 Claude 风格）
+- **支持的 Markdown 语法:
   - 标题 (`# H1` ~ `###### H6`)
   - 段落（支持丰富的行内样式）
   - **粗体** (`**text**`)、_斜体_ (`*text*`)、**_粗斜体_** (`***text***`)
@@ -77,17 +81,17 @@ ohpm install @ycj3/streaming-markdown
 
 ## 使用示例
 
+### 基础用法
+
+只需传入 `text` 和 `mode`，组件内部自动处理流式渲染：
+
 ```typescript
-import { StreamingMarkdown, createStreamingMarkdown } from '@ycj3/streaming-markdown'
+import { StreamingMarkdown } from '@ycj3/streaming-markdown'
 
 @Entry
 @Component
 struct MyPage {
-  private stream = createStreamingMarkdown()
-
-  aboutToAppear() {
-    // 模拟流式 Markdown 输入（如 LLM 输出）
-    const markdown = `# Hello StreamingMarkdown
+  private markdown = `# Hello StreamingMarkdown
 
 This is **bold** and *italic* text.
 
@@ -95,21 +99,13 @@ This is **bold** and *italic* text.
 console.log("Hello World");
 \`\`\`
 `
-    let i = 0
-    const timer = setInterval(() => {
-      if (i >= markdown.length) {
-        clearInterval(timer)
-        this.stream.close()  // 完成解析
-        return
-      }
-      this.stream.push(markdown.charAt(i))  // 逐字符推送
-      i++
-    }, 30)
-  }
 
   build() {
     Scroll() {
-      StreamingMarkdown({ controller: this.stream })
+      StreamingMarkdown({ 
+        text: this.markdown,
+        mode: 'char'  // 渲染模式：char | word | chunk
+      })
         .padding(16)
     }
     .width('100%')
@@ -118,35 +114,90 @@ console.log("Hello World");
 }
 ```
 
+### 不同渲染模式对比
+
+```typescript
+import { StreamingMarkdown, StreamingMode } from '@ycj3/streaming-markdown'
+
+@Entry
+@Component
+struct MyPage {
+  @State mode: StreamingMode = 'word'
+  // 使用 key 来强制重新创建组件，实现重新播放
+  @State renderKey: number = 0
+
+  build() {
+    Column() {
+      // 模式切换按钮
+      Row() {
+        Button('Char').onClick(() => {
+          this.mode = 'char'
+          this.renderKey++
+        })
+        Button('Word').onClick(() => {
+          this.mode = 'word'
+          this.renderKey++
+        })
+        Button('Chunk').onClick(() => {
+          this.mode = 'chunk'
+          this.renderKey++
+        })
+        Button('Replay').onClick(() => this.renderKey++)
+      }
+
+      // 流式渲染组件 - 使用 .key() 强制重新创建
+      StreamingMarkdown({
+        text: '# Hello World\n\nThis is a **test**.',
+        mode: this.mode,
+        interval: 30,        // 渲染间隔(ms)
+        onComplete: () => {
+          console.log('Done!')
+        }
+      })
+        .key(`markdown_${this.mode}_${this.renderKey}`)
+    }
+  }
+}
+```
+
+### 渲染模式说明
+
+| 模式 | 效果 | 适用场景 |
+|------|------|----------|
+| `char` | 字符逐个显示 | 默认，细腻流畅 |
+| `word` | 单词逐个显示 | 类似 GPT-4 风格 |
+| `chunk` | 句子/块逐个显示 | 类似 Claude 风格 |
+
 ---
 
 ## API 参考
 
-### `createStreamingMarkdown()`
-
-创建一个新的 `StreamingMarkdownController` 实例。
-
-**返回**: `StreamingMarkdownController`
-
-### `StreamingMarkdownController`
-
-流式 Markdown 控制器。
-
-| 方法                  | 说明                           |
-| --------------------- | ------------------------------ |
-| `push(char: string)`  | 逐字符增量处理                 |
-| `close()`             | 完成解析，处理未闭合的行内代码 |
-| `subscribe(listener)` | 监听块级 diff 更新             |
-
 ### `StreamingMarkdown` 组件
 
-渲染 Markdown 块的 UI 组件。
+流式 Markdown 渲染组件，内部封装了控制器和定时器逻辑。
 
-**属性**:
+**Props**:
 
-| 属性         | 类型                          | 说明       |
-| ------------ | ----------------------------- | ---------- |
-| `controller` | `StreamingMarkdownController` | 控制器实例 |
+| 属性 | 类型 | 默认值 | 说明 |
+| ---- | ---- | ------ | ---- |
+| `text` | `string` | `''` | 要渲染的 Markdown 文本 |
+| `mode` | `'char' \| 'word' \| 'chunk'` | `'char'` | 渲染动画模式 |
+| `interval` | `number` | `30` | 渲染间隔时间（毫秒） |
+| `onComplete` | `() => void` | - | 渲染完成回调 |
+
+**重新播放**：使用 `ForEach` + `key` 模式强制组件重新创建：
+
+```typescript
+@State renderKey: number = 0
+
+// 点击 Replay
+this.renderKey++
+
+// 渲染
+ForEach([this.renderKey], () => {
+  StreamingMarkdown({ text, mode, interval })
+}, (key) => key.toString())
+```
 
 ---
 
