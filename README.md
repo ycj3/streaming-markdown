@@ -14,7 +14,7 @@ HarmonyOS ArkTS 流式 Markdown 渲染器，专为实时 LLM 对话界面设计�
   - `char` - 字符逐个显示（默认，细腻流畅）
   - `word` - 单词逐个显示（类似 GPT-4 风格）
   - `chunk` - 句子/块逐个显示（类似 Claude 风格）
-- **支持的 Markdown 语法:
+- **支持的 Markdown 语法**:
   - 标题 (`# H1` ~ `###### H6`)
   - 段落（支持丰富的行内样式）
   - **粗体** (`**text**`)、_斜体_ (`*text*`)、**_粗斜体_** (`***text***`)
@@ -65,13 +65,13 @@ ohpm install @ycj3/streaming-markdown
   modules: [
     {
       name: "entry",
-      srcPath: "./entry"
+      srcPath: "./entry",
     },
     {
       name: "streaming_markdown",
-      srcPath: "../streaming-markdown"
-    }
-  ]
+      srcPath: "../streaming-markdown",
+    },
+  ],
 }
 ```
 
@@ -80,6 +80,8 @@ ohpm install @ycj3/streaming-markdown
 ---
 
 ## 使用示例
+
+> 💡 **[查看完整演示项目](https://github.com/ycj3/streaming-markdown-demo)** - 包含模式切换、重新播放等完整示例代码
 
 ### 基础用法
 
@@ -102,7 +104,7 @@ console.log("Hello World");
 
   build() {
     Scroll() {
-      StreamingMarkdown({ 
+      StreamingMarkdown({
         text: this.markdown,
         mode: 'char'  // 渲染模式：char | word | chunk
       })
@@ -162,10 +164,10 @@ struct MyPage {
 
 ### 渲染模式说明
 
-| 模式 | 效果 | 适用场景 |
-|------|------|----------|
-| `char` | 字符逐个显示 | 默认，细腻流畅 |
-| `word` | 单词逐个显示 | 类似 GPT-4 风格 |
+| 模式    | 效果            | 适用场景         |
+| ------- | --------------- | ---------------- |
+| `char`  | 字符逐个显示    | 默认，细腻流畅   |
+| `word`  | 单词逐个显示    | 类似 GPT-4 风格  |
 | `chunk` | 句子/块逐个显示 | 类似 Claude 风格 |
 
 ---
@@ -178,12 +180,12 @@ struct MyPage {
 
 **Props**:
 
-| 属性 | 类型 | 默认值 | 说明 |
-| ---- | ---- | ------ | ---- |
-| `text` | `string` | `''` | 要渲染的 Markdown 文本 |
-| `mode` | `'char' \| 'word' \| 'chunk'` | `'char'` | 渲染动画模式 |
-| `interval` | `number` | `30` | 渲染间隔时间（毫秒） |
-| `onComplete` | `() => void` | - | 渲染完成回调 |
+| 属性         | 类型                          | 默认值   | 说明                   |
+| ------------ | ----------------------------- | -------- | ---------------------- |
+| `text`       | `string`                      | `''`     | 要渲染的 Markdown 文本 |
+| `mode`       | `'char' \| 'word' \| 'chunk'` | `'char'` | 渲染动画模式           |
+| `interval`   | `number`                      | `30`     | 渲染间隔时间（毫秒）   |
+| `onComplete` | `() => void`                  | -        | 渲染完成回调           |
 
 **重新播放**：使用 `ForEach` + `key` 模式强制组件重新创建：
 
