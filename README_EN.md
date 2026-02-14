@@ -81,6 +81,8 @@ Then sync the project in DevEco Studio.
 
 ## Usage
 
+> 💡 **[View Full Demo Project](https://github.com/ycj3/streaming-markdown-demo)** - Complete examples including mode switching and replay functionality
+
 ### Basic Usage
 
 Just pass `text` and `mode`, the component handles streaming internally:
