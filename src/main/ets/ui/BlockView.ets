@@ -1,13 +1,32 @@
-import { Block, CodeBlock, TextSegment, HeadingBlock, ListItemBlock, OrderedListItemBlock, TaskListItemBlock, BlockquoteBlock, HorizontalRuleBlock } from '../core/protocol'
+import { Block, CodeBlock, TextSegment, HeadingBlock, ListItemBlock, OrderedListItemBlock, TaskListItemBlock, BlockquoteBlock, HorizontalRuleBlock, TableBlock } from '../core/protocol'
 import { CodeBlockHeader } from './code-block/CodeBlockHeader'
 import { CodeBlockBody } from './code-block/CodeBlockBody'
 import { parseInlineStyles } from '../core/utils/inline-style-parser'
 import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 
+/**
+ * Table cell info for Grid rendering
+ */
+interface TableCellInfo {
+  content: string
+  rowIndex: number
+  colIndex: number
+}
+
 @Component
 export struct BlockView {
   @Prop block: Block;
+
+  aboutToAppear() {
+    if (this.block.type === 'table') {
+      const tableBlock = this.block as TableBlock;
+      console.log(`[BlockView] aboutToAppear table: headers=${tableBlock.headers.length}, rows=${tableBlock.rows.length}`);
+      console.log(`[BlockView] table headers: [${tableBlock.headers.join(', ')}]`);
+      console.log(`[BlockView] table rows: ${JSON.stringify(tableBlock.rows)}`);
+      console.log(`[BlockView] table alignments: ${JSON.stringify(tableBlock.alignments)}`);
+    }
+  }
 
   // Helper to parse segments from the paragraph text
   parseSegments(text: string): TextSegment[] {
@@ -237,6 +256,8 @@ export struct BlockView {
           .strokeWidth(1)
           .width('100%')
           .margin({ top: 16, bottom: 16 })
+      } else if (this.block.type === 'table') {
+        this.buildTableView(this.block as TableBlock)
       }
     }
     .width('100%')
@@ -246,5 +267,63 @@ export struct BlockView {
   getHeadingSize(level: number): number {
     const sizes = [0, 28, 24, 20, 18, 16, 14];
     return sizes[level] || 16;
+  }
+
+  /**
+   * Build table view using Column + Row layout
+   */
+  @Builder
+  buildTableView(tableBlock: TableBlock) {
+    Column() {
+      // Header row
+      Row() {
+        ForEach(tableBlock.headers, (header: string, index: number) => {
+          Text(header)
+            .fontSize(14)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#1A1A1A')
+            .textAlign(this.getAlignment(tableBlock.alignments[index]))
+            .padding({ left: 8, right: 8, top: 8, bottom: 8 })
+            .layoutWeight(1)
+        })
+      }
+      .width('100%')
+      .backgroundColor('#F5F5F5')
+      .border({ width: { bottom: 2 }, color: '#E0E0E0' })
+
+      // Data rows
+      ForEach(tableBlock.rows, (row: string[], rowIndex: number) => {
+        Row() {
+          ForEach(row, (cell: string, colIndex: number) => {
+            Text(cell)
+              .fontSize(14)
+              .fontColor('#333333')
+              .textAlign(this.getAlignment(tableBlock.alignments[colIndex]))
+              .padding({ left: 8, right: 8, top: 8, bottom: 8 })
+              .layoutWeight(1)
+          })
+        }
+        .width('100%')
+        .backgroundColor(rowIndex % 2 === 1 ? '#FAFAFA' : Color.White)
+        .border({ width: { bottom: 1 }, color: '#EEEEEE' })
+      })
+    }
+    .width('100%')
+    .margin({ top: 12, bottom: 12 })
+    .border({ width: 1, color: '#E0E0E0' })
+    .borderRadius(4)
+    .clip(true)
+  }
+
+  /**
+   * Get TextAlign from alignment string
+   */
+  getAlignment(alignment: 'left' | 'center' | 'right' | null | undefined): TextAlign {
+    if (alignment === 'center') {
+      return TextAlign.Center;
+    } else if (alignment === 'right') {
+      return TextAlign.End;
+    }
+    return TextAlign.Start;
   }
 }

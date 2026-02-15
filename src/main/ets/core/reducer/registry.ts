@@ -83,7 +83,8 @@ export function createDefaultRegistry(
   listReducer: IReducer,
   orderedListReducer: IReducer,
   blockquoteReducer: IReducer,
-  horizontalRuleReducer: IReducer
+  horizontalRuleReducer: IReducer,
+  tableReducer: IReducer
 ): ReducerRegistry {
   const registry = new ReducerRegistry();
 
@@ -97,6 +98,7 @@ export function createDefaultRegistry(
   registry.register(ParseMode.OrderedList, orderedListReducer);
   registry.register(ParseMode.Blockquote, blockquoteReducer);
   registry.register(ParseMode.HorizontalRule, horizontalRuleReducer);
+  registry.register(ParseMode.Table, tableReducer);
 
   // Register triggers (sorted by priority)
   // Note: trigger order is important
@@ -107,6 +109,7 @@ export function createDefaultRegistry(
   registry.registerTrigger(orderedListReducer);
   registry.registerTrigger(blockquoteReducer);
   registry.registerTrigger(horizontalRuleReducer);
+  registry.registerTrigger(tableReducer);
 
   return registry;
 }

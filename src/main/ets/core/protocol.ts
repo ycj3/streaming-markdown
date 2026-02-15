@@ -56,6 +56,15 @@ export type HorizontalRuleBlock = {
   text: ''  // Empty text, for type compatibility
 }
 
+export type TableBlock = {
+  id: number
+  type: 'table'
+  headers: string[]  // 表头单元格内容数组
+  rows: string[][]   // 数据行，每行是一个单元格内容数组
+  alignments: ('left' | 'center' | 'right' | null)[]  // 每列对齐方式
+  text: ''  // Empty text, for type compatibility
+}
+
 export class TextSegment {
   content: string = ""
   isCode: boolean = false
@@ -66,7 +75,7 @@ export class TextSegment {
   linkUrl: string = ""
 }
 
-export type Block = ParagraphBlock | CodeBlock | HeadingBlock | InlineCodeBlock | ListItemBlock | OrderedListItemBlock | TaskListItemBlock | BlockquoteBlock | HorizontalRuleBlock
+export type Block = ParagraphBlock | CodeBlock | HeadingBlock | InlineCodeBlock | ListItemBlock | OrderedListItemBlock | TaskListItemBlock | BlockquoteBlock | HorizontalRuleBlock | TableBlock
 
 export type BlockDiff =
   | { kind: 'append'; block: Block }

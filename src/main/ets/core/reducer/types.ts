@@ -23,6 +23,8 @@ export enum ParseMode {
   Blockquote = "blockquote",
   /** Horizontal rule */
   HorizontalRule = "horizontalRule",
+  /** Table */
+  Table = "table",
 }
 
 /**
@@ -49,6 +51,18 @@ export interface ReducerContext {
   taskListChecked: boolean | string | null;
   /** Horizontal rule dash counter */
   hrDashCount: number;
+  /** Table parsing state: 'header' | 'separator' | 'rows' */
+  tableState: 'header' | 'separator' | 'rows' | null;
+  /** Table header cells buffer */
+  tableHeaders: string[];
+  /** Table alignments buffer */
+  tableAlignments: ('left' | 'center' | 'right' | null)[];
+  /** Table rows buffer */
+  tableRows: string[][];
+  /** Current table row buffer */
+  tableCurrentRow: string[];
+  /** Current cell content buffer */
+  tableCellBuffer: string;
 }
 
 /**
@@ -107,5 +121,11 @@ export function createInitialContext(): ReducerContext {
     orderedListNumber: 0,
     taskListChecked: null,
     hrDashCount: 0,
+    tableState: null,
+    tableHeaders: [],
+    tableAlignments: [],
+    tableRows: [],
+    tableCurrentRow: [],
+    tableCellBuffer: '',
   };
 }
