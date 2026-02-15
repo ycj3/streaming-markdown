@@ -116,7 +116,7 @@ export struct StreamingMarkdown {
         }
       }, (block: Block) => {
         if (block.type === 'table') {
-          return block.id.toString() + "_" + block.rows.length
+          return `${block.id}_${block.version || 0}`;
         }
         return block.id.toString() + "_" + block.text.length
       })

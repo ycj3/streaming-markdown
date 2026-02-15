@@ -59,10 +59,11 @@ export type HorizontalRuleBlock = {
 export type TableBlock = {
   id: number
   type: 'table'
-  headers: string[]  // 表头单元格内容数组
-  rows: string[][]   // 数据行，每行是一个单元格内容数组
-  alignments: ('left' | 'center' | 'right' | null)[]  // 每列对齐方式
-  text: ''  // Empty text, for type compatibility
+  headers: string[]  
+  rows: string[][]   
+  alignments: ('left' | 'center' | 'right' | null)[]  
+  version: number // Used to track data changes
+  text: ''
 }
 
 export class TextSegment {
