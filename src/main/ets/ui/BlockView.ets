@@ -1,32 +1,14 @@
 import { Block, CodeBlock, TextSegment, HeadingBlock, ListItemBlock, OrderedListItemBlock, TaskListItemBlock, BlockquoteBlock, HorizontalRuleBlock, TableBlock } from '../core/protocol'
 import { CodeBlockHeader } from './code-block/CodeBlockHeader'
 import { CodeBlockBody } from './code-block/CodeBlockBody'
+import { MathEquationView } from './MathEquationView'
 import { parseInlineStyles } from '../core/utils/inline-style-parser'
 import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 
-/**
- * Table cell info for Grid rendering
- */
-interface TableCellInfo {
-  content: string
-  rowIndex: number
-  colIndex: number
-}
-
 @Component
 export struct BlockView {
   @Prop block: Block;
-
-  aboutToAppear() {
-    if (this.block.type === 'table') {
-      const tableBlock = this.block as TableBlock;
-      console.log(`[BlockView] aboutToAppear table: headers=${tableBlock.headers.length}, rows=${tableBlock.rows.length}`);
-      console.log(`[BlockView] table headers: [${tableBlock.headers.join(', ')}]`);
-      console.log(`[BlockView] table rows: ${JSON.stringify(tableBlock.rows)}`);
-      console.log(`[BlockView] table alignments: ${JSON.stringify(tableBlock.alignments)}`);
-    }
-  }
 
   // Helper to parse segments from the paragraph text
   parseSegments(text: string): TextSegment[] {
@@ -37,12 +19,105 @@ export struct BlockView {
   openLink(url: string) {
     const context = getContext(this) as common.UIAbilityContext;
     context.openLink(url)
-      .then(() => {
-        console.info('open link success');
-      })
+      .then(() => {})
       .catch((error: BusinessError) => {
         console.error('open link failed: ' + JSON.stringify(error));
       });
+  }
+
+  private getSegmentFontFamily(seg: TextSegment): string {
+    if (seg.isCode || seg.isMath) {
+      return 'monospace'
+    }
+    return 'sans-serif'
+  }
+
+  private getSegmentFontColor(seg: TextSegment, defaultColor: string): string {
+    if (seg.isCode) {
+      return '#D32F2F'
+    }
+    if (seg.isMath) {
+      return '#0D47A1'
+    }
+    if (seg.isLink) {
+      return '#1976D2'
+    }
+    return defaultColor
+  }
+
+  private getSegmentDecorationType(seg: TextSegment): TextDecorationType {
+    if (seg.isStrikethrough) {
+      return TextDecorationType.LineThrough
+    }
+    if (seg.isLink) {
+      return TextDecorationType.Underline
+    }
+    return TextDecorationType.None
+  }
+
+  private getSegmentFontSize(seg: TextSegment, baseSize: number): number {
+    return seg.isMathDisplay ? baseSize + 2 : baseSize
+  }
+
+  private hasDisplayMathSegments(text: string): boolean {
+    const segments = this.parseSegments(text)
+    for (const seg of segments) {
+      if (seg.isMathDisplay) {
+        return true
+      }
+    }
+    return false
+  }
+
+  @Builder
+  private buildParagraphWithKatex(text: string) {
+    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, alignItems: ItemAlign.Center }) {
+      ForEach(this.parseSegments(text), (seg: TextSegment, index: number) => {
+        if (seg.isMath) {
+          if (seg.isMathDisplay) {
+            MathEquationView({
+              latex: seg.rawContent || seg.content,
+              displayMode: true
+            })
+              .width('100%')
+              .height(120)
+              .margin({ top: 6, bottom: 6 })
+          } else {
+            Text(seg.content)
+              .fontSize(17)
+              .fontFamily('monospace')
+              .fontColor('#0D47A1')
+              .backgroundColor('#EEF3FF')
+              .borderRadius(4)
+              .padding({ left: 2, right: 2, top: 1, bottom: 1 })
+              .margin({ right: 2 })
+          }
+        } else {
+          Text(seg.content)
+            .fontSize(this.getSegmentFontSize(seg, 16))
+            .fontFamily(this.getSegmentFontFamily(seg))
+            .fontColor(this.getSegmentFontColor(seg, '#333333'))
+            .fontWeight(seg.isBold ? FontWeight.Bold : FontWeight.Normal)
+            .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
+            .decoration({
+              type: this.getSegmentDecorationType(seg),
+              color: this.getSegmentFontColor(seg, '#333333')
+            })
+            .backgroundColor(seg.isCode ? '#F5F5F5' : Color.Transparent)
+            .borderRadius(seg.isCode ? 4 : 0)
+            .onClick(() => {
+              if (seg.isLink && seg.linkUrl) {
+                this.openLink(seg.linkUrl);
+              }
+            })
+            .margin({ right: 2 })
+        }
+      }, (seg: TextSegment, index: number) => {
+        return `${index}_${seg.rawContent}_${seg.content.length}`
+      })
+    }
+    .width('100%')
+    .margin({ bottom: 8 })
   }
 
   build() {
@@ -51,16 +126,16 @@ export struct BlockView {
         Text() {
           ForEach(this.parseSegments(this.block.text), (seg: TextSegment) => {
             Span(seg.content)
-              .fontSize(this.getHeadingSize((this.block as HeadingBlock).level))
+              .fontSize(this.getSegmentFontSize(seg, this.getHeadingSize((this.block as HeadingBlock).level)))
               .fontWeight(FontWeight.Bold)
-              .fontColor(seg.isLink ? '#1976D2' : '#1A1A1A')
-              .fontFamily(seg.isCode ? 'monospace' : 'sans-serif')
+              .fontColor(this.getSegmentFontColor(seg, '#1A1A1A'))
+              .fontFamily(this.getSegmentFontFamily(seg))
               .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
               .decoration({
-                type: seg.isStrikethrough ? TextDecorationType.LineThrough : seg.isLink ? TextDecorationType.Underline : TextDecorationType.None,
-                color: seg.isLink ? '#1976D2' : '#1A1A1A'
+                type: this.getSegmentDecorationType(seg),
+                color: this.getSegmentFontColor(seg, '#1A1A1A')
               })
-              .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : undefined)
+              .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : seg.isMath ? { color: '#EEF3FF', radius: 4 } : undefined)
               .onClick(() => {
                 if (seg.isLink && seg.linkUrl) {
                   this.openLink(seg.linkUrl);
@@ -71,31 +146,32 @@ export struct BlockView {
         .width('100%')
         .margin({ top: 12, bottom: 8 })
       } else if (this.block.type === 'paragraph') {
-        Text() {
-          ForEach(this.parseSegments(this.block.text), (seg: TextSegment) => {
-            Span(seg.content)
-              .fontSize(16)
-              // Use monospace for code, otherwise standard sans-serif
-              .fontFamily(seg.isCode ? 'monospace' : 'sans-serif')
-              // Code usually has a distinct color
-              .fontColor(seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#333333')
-              .fontWeight(seg.isBold ? FontWeight.Bold : FontWeight.Normal)
-              .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
-              .decoration({
-                type: seg.isStrikethrough ? TextDecorationType.LineThrough : seg.isLink ? TextDecorationType.Underline : TextDecorationType.None,
-                color: seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#333333'
-              })
-              // Inline code background style
-              .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : undefined)
-              .onClick(() => {
-                if (seg.isLink && seg.linkUrl) {
-                  this.openLink(seg.linkUrl);
-                }
-              })
-          })
+        if (this.hasDisplayMathSegments(this.block.text)) {
+          this.buildParagraphWithKatex(this.block.text)
+        } else {
+          Text() {
+            ForEach(this.parseSegments(this.block.text), (seg: TextSegment) => {
+              Span(seg.content)
+                .fontSize(this.getSegmentFontSize(seg, 16))
+                .fontFamily(this.getSegmentFontFamily(seg))
+                .fontColor(this.getSegmentFontColor(seg, '#333333'))
+                .fontWeight(seg.isBold ? FontWeight.Bold : FontWeight.Normal)
+                .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
+                .decoration({
+                  type: this.getSegmentDecorationType(seg),
+                  color: this.getSegmentFontColor(seg, '#333333')
+                })
+                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : seg.isMath ? { color: '#EEF3FF', radius: 4 } : undefined)
+                .onClick(() => {
+                  if (seg.isLink && seg.linkUrl) {
+                    this.openLink(seg.linkUrl);
+                  }
+                })
+            })
+          }
+          .width('100%')
+          .margin({ bottom: 8 })
         }
-        .width('100%')
-        .margin({ bottom: 8 })
       } else if (this.block.type === 'code') {
         Column() {
           CodeBlockHeader({
@@ -126,16 +202,16 @@ export struct BlockView {
           Text() {
             ForEach(this.parseSegments(this.block.text), (seg: TextSegment) => {
               Span(seg.content)
-                .fontSize(16)
-                .fontFamily(seg.isCode ? 'monospace' : 'sans-serif')
-                .fontColor(seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#333333')
+                .fontSize(this.getSegmentFontSize(seg, 16))
+                .fontFamily(this.getSegmentFontFamily(seg))
+                .fontColor(this.getSegmentFontColor(seg, '#333333'))
                 .fontWeight(seg.isBold ? FontWeight.Bold : FontWeight.Normal)
                 .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
                 .decoration({
-                  type: seg.isStrikethrough ? TextDecorationType.LineThrough : seg.isLink ? TextDecorationType.Underline : TextDecorationType.None,
-                  color: seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#333333'
+                  type: this.getSegmentDecorationType(seg),
+                  color: this.getSegmentFontColor(seg, '#333333')
                 })
-                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : undefined)
+                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : seg.isMath ? { color: '#EEF3FF', radius: 4 } : undefined)
                 .onClick(() => {
                   if (seg.isLink && seg.linkUrl) {
                     this.openLink(seg.linkUrl);
@@ -160,16 +236,16 @@ export struct BlockView {
           Text() {
             ForEach(this.parseSegments(this.block.text), (seg: TextSegment) => {
               Span(seg.content)
-                .fontSize(16)
-                .fontFamily(seg.isCode ? 'monospace' : 'sans-serif')
-                .fontColor(seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#333333')
+                .fontSize(this.getSegmentFontSize(seg, 16))
+                .fontFamily(this.getSegmentFontFamily(seg))
+                .fontColor(this.getSegmentFontColor(seg, '#333333'))
                 .fontWeight(seg.isBold ? FontWeight.Bold : FontWeight.Normal)
                 .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
                 .decoration({
-                  type: seg.isStrikethrough ? TextDecorationType.LineThrough : seg.isLink ? TextDecorationType.Underline : TextDecorationType.None,
-                  color: seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#333333'
+                  type: this.getSegmentDecorationType(seg),
+                  color: this.getSegmentFontColor(seg, '#333333')
                 })
-                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : undefined)
+                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : seg.isMath ? { color: '#EEF3FF', radius: 4 } : undefined)
                 .onClick(() => {
                   if (seg.isLink && seg.linkUrl) {
                     this.openLink(seg.linkUrl);
@@ -194,16 +270,16 @@ export struct BlockView {
           Text() {
             ForEach(this.parseSegments(this.block.text), (seg: TextSegment) => {
               Span(seg.content)
-                .fontSize(16)
-                .fontFamily(seg.isCode ? 'monospace' : 'sans-serif')
-                .fontColor(seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#333333')
+                .fontSize(this.getSegmentFontSize(seg, 16))
+                .fontFamily(this.getSegmentFontFamily(seg))
+                .fontColor(this.getSegmentFontColor(seg, '#333333'))
                 .fontWeight(seg.isBold ? FontWeight.Bold : FontWeight.Normal)
                 .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
                 .decoration({
-                  type: seg.isStrikethrough ? TextDecorationType.LineThrough : seg.isLink ? TextDecorationType.Underline : TextDecorationType.None,
-                  color: seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#333333'
+                  type: this.getSegmentDecorationType(seg),
+                  color: this.getSegmentFontColor(seg, '#333333')
                 })
-                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : undefined)
+                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : seg.isMath ? { color: '#EEF3FF', radius: 4 } : undefined)
                 .onClick(() => {
                   if (seg.isLink && seg.linkUrl) {
                     this.openLink(seg.linkUrl);
@@ -222,16 +298,16 @@ export struct BlockView {
           Text() {
             ForEach(this.parseSegments(this.block.text), (seg: TextSegment) => {
               Span(seg.content)
-                .fontSize(16)
-                .fontFamily(seg.isCode ? 'monospace' : 'sans-serif')
-                .fontColor(seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#666666')
+                .fontSize(this.getSegmentFontSize(seg, 16))
+                .fontFamily(this.getSegmentFontFamily(seg))
+                .fontColor(this.getSegmentFontColor(seg, '#666666'))
                 .fontWeight(seg.isBold ? FontWeight.Bold : FontWeight.Normal)
                 .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
                 .decoration({
-                  type: seg.isStrikethrough ? TextDecorationType.LineThrough : seg.isLink ? TextDecorationType.Underline : TextDecorationType.None,
-                  color: seg.isCode ? '#D32F2F' : seg.isLink ? '#1976D2' : '#666666'
+                  type: this.getSegmentDecorationType(seg),
+                  color: this.getSegmentFontColor(seg, '#666666')
                 })
-                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : undefined)
+                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : seg.isMath ? { color: '#EEF3FF', radius: 4 } : undefined)
                 .onClick(() => {
                   if (seg.isLink && seg.linkUrl) {
                     this.openLink(seg.linkUrl);

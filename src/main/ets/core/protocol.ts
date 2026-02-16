@@ -68,7 +68,10 @@ export type TableBlock = {
 
 export class TextSegment {
   content: string = ""
+  rawContent: string = ""
   isCode: boolean = false
+  isMath: boolean = false
+  isMathDisplay: boolean = false
   isBold: boolean = false
   isItalic: boolean = false
   isStrikethrough: boolean = false
