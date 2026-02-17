@@ -1,4 +1,5 @@
 import { BlockDiff, TableBlock } from "../../protocol";
+import { debugLog } from "../../utils/debug";
 import { BaseReducer } from "../BaseReducer";
 import { ReducerContext, ReducerResult, ParseMode } from "../types";
 
@@ -34,7 +35,7 @@ export class TableReducer extends BaseReducer {
       context.mode === ParseMode.Paragraph &&
       (!context.currentBlock || context.currentBlock.text === "");
     if (char === "|") {
-      console.log(
+      debugLog(() => 
         `[Table] canStartTable: char='${char}', mode=${context.mode}, currentBlock=${context.currentBlock?.type}, text='${context.currentBlock?.text}', result=${result}`
       );
     }
@@ -46,7 +47,7 @@ export class TableReducer extends BaseReducer {
    * Returns handled: true so the '|' is consumed and not part of content
    */
   startTable(context: ReducerContext): ReducerResult {
-    console.log(`[Table] startTable called!`);
+    debugLog(() => `[Table] startTable called!`);
     // Initialize table parsing state
     context.tableState = "header";
     context.tableHeaders = [];
@@ -62,7 +63,7 @@ export class TableReducer extends BaseReducer {
    */
   process(char: string, context: ReducerContext): ReducerResult {
     if (char === "|" || char === "\n") {
-      console.log(
+      debugLog(() => 
         `[Table] process: char='${JSON.stringify(char)}', state=${
           context.tableState
         }, buffer='${context.tableCellBuffer.substring(0, 20)}', rows=${
@@ -71,7 +72,7 @@ export class TableReducer extends BaseReducer {
       );
     }
     if (context.mode !== ParseMode.Table) {
-      console.log(`[Table] process: not in Table mode, returning notHandled`);
+      debugLog(() => `[Table] process: not in Table mode, returning notHandled`);
       return this.notHandled();
     }
 
@@ -107,7 +108,7 @@ export class TableReducer extends BaseReducer {
     context: ReducerContext,
     diffs: BlockDiff[]
   ): ReducerResult {
-    console.log(
+    debugLog(() => 
       `[Table] Row Processed. Total Rows now: ${context.tableRows.length}. Next State: ${context.tableState}`
     );
     const state = context.tableState;
@@ -116,22 +117,22 @@ export class TableReducer extends BaseReducer {
     if (state === "header") {
       // End of header row, save last cell
       const hasContent = context.tableCellBuffer.length > 0;
-      console.log(
+      debugLog(() => 
         `[Table] handleNewline header: hasContent=${hasContent}, buffer='${context.tableCellBuffer}', current headers=${context.tableHeaders.length}`
       );
       if (hasContent) {
         const content = this.trimCellContent(context.tableCellBuffer);
         context.tableHeaders.push(content);
-        console.log(`[Table] handleNewline pushed header: '${content}'`);
+        debugLog(() => `[Table] handleNewline pushed header: '${content}'`);
       }
       // If we have no headers at all, this is not a valid table row, fall back
       if (context.tableHeaders.length === 0) {
-        console.log(`[Table] handleNewline no headers, falling back`);
+        debugLog(() => `[Table] handleNewline no headers, falling back`);
         return this.fallbackToParagraph(context, diffs);
       }
       context.tableCellBuffer = "";
       context.tableState = "separator";
-      console.log(
+      debugLog(() => 
         `[Table] transitioning to separator state, headers=${context.tableHeaders.length}`
       );
       return this.noChange();
@@ -140,13 +141,13 @@ export class TableReducer extends BaseReducer {
     if (state === "separator") {
       // End of separator row, parse alignments
       const hasContent = context.tableCellBuffer.length > 0;
-      console.log(
+      debugLog(() => 
         `[Table] handleNewline separator: hasContent=${hasContent}, buffer='${context.tableCellBuffer}', current alignments=${context.tableAlignments.length}`
       );
       if (hasContent) {
         const alignment = this.parseAlignment(context.tableCellBuffer);
         context.tableAlignments.push(alignment);
-        console.log(`[Table] handleNewline pushed alignment: ${alignment}`);
+        debugLog(() => `[Table] handleNewline pushed alignment: ${alignment}`);
       }
       // If we have alignments from handleCellDelimiter but the last one wasn't pushed
       // (because the row ended with |), we need to handle this case
@@ -154,24 +155,24 @@ export class TableReducer extends BaseReducer {
       context.tableCellBuffer = "";
 
       // Validate separator row matches header column count
-      console.log(
+      debugLog(() => 
         `[Table] validating: alignments=${context.tableAlignments.length}, headers=${context.tableHeaders.length}`
       );
       if (context.tableAlignments.length !== context.tableHeaders.length) {
         // Not a valid table, fall back to paragraph
-        console.log(
+        debugLog(() => 
           `[Table] fallback: alignments=${context.tableAlignments.length}, headers=${context.tableHeaders.length}`
         );
         return this.fallbackToParagraph(context, diffs);
       }
 
       context.tableState = "rows";
-      console.log(`[Table] transitioning to rows state`);
+      debugLog(() => `[Table] transitioning to rows state`);
       return this.noChange();
     }
 
     if (state === "rows") {
-      console.log(
+      debugLog(() => 
         `[Table] handleNewline rows: buffer='${
           context.tableCellBuffer
         }', currentRow=[${context.tableCurrentRow.join(", ")}], headers=${
@@ -183,7 +184,7 @@ export class TableReducer extends BaseReducer {
         context.tableCurrentRow.push(
           this.trimCellContent(context.tableCellBuffer)
         );
-        console.log(
+        debugLog(() => 
           `[Table] pushed last cell, row=[${context.tableCurrentRow.join(
             ", "
           )}]`
@@ -196,7 +197,7 @@ export class TableReducer extends BaseReducer {
           context.tableCurrentRow.push("");
         }
         context.tableRows.push([...context.tableCurrentRow]);
-        console.log(
+        debugLog(() => 
           `[Table] pushed row to tableRows! total=${
             context.tableRows.length
           }, cells=[${context.tableCurrentRow.join(", ")}]`
@@ -206,13 +207,13 @@ export class TableReducer extends BaseReducer {
         context.tableCurrentRow = [];
         context.tableCellBuffer = "";
       } else {
-        console.log(`[Table] currentRow empty, not pushing row`);
+        debugLog(() => `[Table] currentRow empty, not pushing row`);
       }
 
       const patch = this.updateTableBlock(context);
       if (patch) {
         diffs.push(patch);
-        console.log(`[Table] updateTableBlock returned patch`);
+        debugLog(() => `[Table] updateTableBlock returned patch`);
       }
 
       // 显式保持 Table 模式
@@ -243,7 +244,7 @@ export class TableReducer extends BaseReducer {
 
     if (state === "header") {
       const cellCount = context.tableHeaders.length;
-      console.log(
+      debugLog(() => 
         `[Table] handleCellDelimiter header: hasContent=${hasContent}, cellCount=${cellCount}, buffer='${rawBuffer}'`
       );
       if (hasContent) {
@@ -251,17 +252,17 @@ export class TableReducer extends BaseReducer {
         const content = this.trimCellContent(rawBuffer);
         context.tableHeaders.push(content);
         context.tableCellBuffer = "";
-        console.log(
+        debugLog(() => 
           `[Table] pushed header: '${content}', headers now has ${context.tableHeaders.length} items`
         );
       } else if (cellCount > 0) {
         // || - consecutive delimiter, push empty cell
         context.tableHeaders.push("");
-        console.log(
+        debugLog(() => 
           `[Table] pushed empty header, headers now has ${context.tableHeaders.length} items`
         );
       } else {
-        console.log(`[Table] leading | in header, nothing pushed`);
+        debugLog(() => `[Table] leading | in header, nothing pushed`);
       }
       // Leading | with empty buffer and no cells - do nothing (row start marker)
       return this.noChange();
@@ -269,7 +270,7 @@ export class TableReducer extends BaseReducer {
 
     if (state === "separator") {
       const cellCount = context.tableAlignments.length;
-      console.log(
+      debugLog(() => 
         `[Table] handleCellDelimiter separator: hasContent=${hasContent}, cellCount=${cellCount}, buffer='${rawBuffer}'`
       );
       if (hasContent) {
@@ -277,17 +278,17 @@ export class TableReducer extends BaseReducer {
         const alignment = this.parseAlignment(rawBuffer);
         context.tableAlignments.push(alignment);
         context.tableCellBuffer = "";
-        console.log(
+        debugLog(() => 
           `[Table] pushed alignment: ${alignment}, alignments now has ${context.tableAlignments.length} items`
         );
       } else if (cellCount > 0) {
         // || - consecutive delimiter, push default alignment
         context.tableAlignments.push(null);
-        console.log(
+        debugLog(() => 
           `[Table] pushed null alignment, alignments now has ${context.tableAlignments.length} items`
         );
       } else {
-        console.log(`[Table] leading | in separator, nothing pushed`);
+        debugLog(() => `[Table] leading | in separator, nothing pushed`);
       }
       // Leading | - do nothing
       return this.noChange();
@@ -295,7 +296,7 @@ export class TableReducer extends BaseReducer {
 
     if (state === "rows") {
       const cellCount = context.tableCurrentRow.length;
-      console.log(
+      debugLog(() => 
         `[Table] handleCellDelimiter rows: hasContent=${hasContent}, cellCount=${cellCount}, buffer='${rawBuffer}'`
       );
       if (hasContent) {
@@ -303,17 +304,17 @@ export class TableReducer extends BaseReducer {
         const content = this.trimCellContent(rawBuffer);
         context.tableCurrentRow.push(content);
         context.tableCellBuffer = "";
-        console.log(
+        debugLog(() => 
           `[Table] pushed cell content: '${content}', row now has ${context.tableCurrentRow.length} cells`
         );
       } else if (cellCount > 0) {
         // || - consecutive delimiter, push empty cell
         context.tableCurrentRow.push("");
-        console.log(
+        debugLog(() => 
           `[Table] pushed empty cell, row now has ${context.tableCurrentRow.length} cells`
         );
       } else {
-        console.log(`[Table] leading |, nothing pushed`);
+        debugLog(() => `[Table] leading |, nothing pushed`);
       }
       // Leading | - do nothing
       return this.noChange();
@@ -403,7 +404,7 @@ export class TableReducer extends BaseReducer {
     context: ReducerContext,
     diffs: BlockDiff[]
   ): ReducerResult {
-    console.log(
+    debugLog(() => 
       `[Table] FALLBACK to paragraph! headers=${context.tableHeaders.length}, alignments=${context.tableAlignments.length}`
     );
     // Build fallback text from what we've collected

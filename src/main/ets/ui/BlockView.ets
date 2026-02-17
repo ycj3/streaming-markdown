@@ -6,13 +6,56 @@ import { parseInlineStyles } from '../core/utils/inline-style-parser'
 import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 
+const INLINE_SEGMENT_CACHE_LIMIT = 256
+const inlineSegmentCache: Map<string, TextSegment[]> = new Map()
+
+function buildInlineSegmentCacheKey(block: Block, text: string): string {
+  return `${block.id}::${text}`
+}
+
+function getCachedSegments(key: string): TextSegment[] | undefined {
+  const cached = inlineSegmentCache.get(key)
+  if (!cached) {
+    return undefined
+  }
+
+  // Refresh insertion order to keep this as a tiny LRU cache.
+  inlineSegmentCache.delete(key)
+  inlineSegmentCache.set(key, cached)
+  return cached
+}
+
+function setCachedSegments(key: string, segments: TextSegment[]): void {
+  inlineSegmentCache.set(key, segments)
+  if (inlineSegmentCache.size <= INLINE_SEGMENT_CACHE_LIMIT) {
+    return
+  }
+
+  const oldestKey = inlineSegmentCache.keys().next().value as string | undefined
+  if (oldestKey) {
+    inlineSegmentCache.delete(oldestKey)
+  }
+}
+
 @Component
 export struct BlockView {
   @Prop block: Block;
 
   // Helper to parse segments from the paragraph text
   parseSegments(text: string): TextSegment[] {
-    return parseInlineStyles(text);
+    // Cache invalidation rule:
+    // - `block.id` changes for different blocks
+    // - `text` changes whenever block content changes
+    // So a changed render input naturally misses cache and reparses.
+    const cacheKey = buildInlineSegmentCacheKey(this.block, text)
+    const cached = getCachedSegments(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    const parsed = parseInlineStyles(text)
+    setCachedSegments(cacheKey, parsed)
+    return parsed
   }
 
   // Open link URL in system browser
