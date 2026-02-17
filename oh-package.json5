@@ -1,6 +1,6 @@
 {
   name: "@ycj3/streaming-markdown",
-  version: "1.1.0",
+  version: "1.2.0",
   author: "Carlson carlsonyuandev@gmail.com",
   description: "HarmonyOS ArkTS 流式 Markdown 渲染器，支持 char/word/chunk 三种渲染动画模式，专为实时 LLM 对话界面设计。",
   main: "src/main/ets/index.ets",

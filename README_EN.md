@@ -20,12 +20,24 @@ A streaming markdown renderer for HarmonyOS ArkTS, designed for real-time LLM ch
   - **Bold** (`**text**`), _Italic_ (`*text*`), **_Bold + Italic_** (`***text***`)
   - ~~Strikethrough~~ (`~~text~~`)
   - Inline code (`` `code` ``)
+  - LaTeX math expressions
+    - Inline math (`$E=mc^2$`)
+    - Display math (`$$\int_a^b f(x)\,dx$$`)
+    - In ArkTS string literals, use escaped backslashes: `$$\\int_a^b f(x)\\,dx$$`
+    - Equations in paragraphs use WebView + KaTeX for professional typesetting (local static assets)
+    - Put KaTeX files under `src/main/resources/rawfile/katex/`:
+      - `katex.min.js`
+      - `katex.min.css`
+      - `fonts/` (KaTeX font directory)
+    - Recommended KaTeX version: `0.16.21` (matches bundled static assets)
+    - Auto-copy script: `bash scripts/setup-katex-static.sh`
   - [Links](https://example.com) (`[text](url)`)
   - Unordered lists (`- item`)
   - Ordered lists (`1. item`)
   - Task lists (`- [x] Done` / `- [ ] Todo`)
   - Blockquotes (`> quote`)
   - Horizontal rules (`---`)
+  - Tables (GFM style, e.g. `| col1 | col2 |`)
   - Fenced code blocks (` ```lang `)
     - Copy button
     - Syntax highlighting
@@ -229,3 +241,5 @@ The parser uses a state machine with diff-based updates for efficient rendering 
 ## License
 
 Apache-2.0
+
+For bundled third-party licenses (including KaTeX MIT), see `THIRD_PARTY_LICENSES.md`.

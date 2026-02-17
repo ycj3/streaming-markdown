@@ -1,4 +1,5 @@
 import { TextSegment } from "../protocol";
+import { renderLatexToText } from "./latex-renderer";
 
 /**
  * TokenType for internal parsing logic
@@ -12,6 +13,8 @@ enum TokenType {
   STRIKETHROUGH_OPEN = "strike_open",
   STRIKETHROUGH_CLOSE = "strike_close",
   CODE = "code",
+  INLINE_MATH = "inline_math",
+  DISPLAY_MATH = "display_math",
   LINK_TEXT = "link_text",
   LINK_URL = "link_url",
 }
@@ -54,7 +57,24 @@ class Tokenizer {
         }
       }
 
-      // 2. Link: [text](url)
+      // 2. Math: $$display$$ first, then $inline$
+      if (char === "$" && !this.isEscaped(this.pos)) {
+        const hasDoubleDelimiter = next === "$";
+        const math = this.parseMath(hasDoubleDelimiter ? 2 : 1);
+        if (math) {
+          const isDisplay =
+            hasDoubleDelimiter &&
+            this.shouldTreatDoubleDollarAsDisplay(this.pos, math.newPos);
+          tokens.push({
+            type: isDisplay ? TokenType.DISPLAY_MATH : TokenType.INLINE_MATH,
+            value: math.content,
+          });
+          this.pos = math.newPos;
+          continue;
+        }
+      }
+
+      // 3. Link: [text](url)
       if (char === "[") {
         const linkEnd = this.parseLink();
         if (linkEnd) {
@@ -68,7 +88,7 @@ class Tokenizer {
         }
       }
 
-      // 3. Strikethrough: Handles double tildes ~~
+      // 4. Strikethrough: Handles double tildes ~~
       if (char === "~" && next === "~") {
         this.isStrikeOpen = !this.isStrikeOpen;
         tokens.push({
@@ -81,7 +101,7 @@ class Tokenizer {
         continue;
       }
 
-      // 4. Bold & Italic: Handles ***, **, and *
+      // 5. Bold & Italic: Handles ***, **, and *
       if (char === "*") {
         // Triple asterisks: Bold + Italic
         if (next === "*" && this.text[this.pos + 2] === "*") {
@@ -122,12 +142,12 @@ class Tokenizer {
         continue;
       }
 
-      // 5. Plain Text: Consume until next potential marker
+      // 6. Plain Text: Consume until next potential marker
       let textVal = char;
       this.pos++;
       while (
         this.pos < this.text.length &&
-        !"*~`[".includes(this.text[this.pos])
+        !"*~`[$".includes(this.text[this.pos])
       ) {
         textVal += this.text[this.pos];
         this.pos++;
@@ -135,6 +155,82 @@ class Tokenizer {
       tokens.push({ type: TokenType.TEXT, value: textVal });
     }
     return tokens;
+  }
+
+  /**
+   * Returns true if char at index is escaped by an odd number of preceding backslashes.
+   */
+  private isEscaped(index: number): boolean {
+    let backslashCount = 0;
+    let cursor = index - 1;
+    while (cursor >= 0 && this.text[cursor] === "\\") {
+      backslashCount++;
+      cursor--;
+    }
+    return backslashCount % 2 === 1;
+  }
+
+  /**
+   * Try to parse math:
+   * - delimiterLength=1 => $...$
+   * - delimiterLength=2 => $$...$$
+   */
+  private parseMath(delimiterLength: number): { content: string; newPos: number } | null {
+    const delimiter = "$".repeat(delimiterLength);
+    const start = this.pos + delimiterLength;
+    let cursor = start;
+
+    while (cursor < this.text.length) {
+      const matched = this.text.substring(cursor, cursor + delimiterLength) === delimiter;
+      if (matched && !this.isEscaped(cursor)) {
+        return {
+          content: this.text.substring(start, cursor),
+          newPos: cursor + delimiterLength,
+        };
+      }
+      cursor++;
+    }
+
+    return null;
+  }
+
+  /**
+   * For $$...$$:
+   * - Treat as display math only when it is effectively isolated on its own line.
+   * - If embedded in sentence text, treat as inline math for better UX compatibility.
+   */
+  private shouldTreatDoubleDollarAsDisplay(startPos: number, endPos: number): boolean {
+    const prev = this.findPreviousNonWhitespace(startPos - 1);
+    const next = this.findNextNonWhitespace(endPos);
+
+    const leftBoundary = prev === null || prev === "\n" || prev === "\r";
+    const rightBoundary = next === null || next === "\n" || next === "\r";
+
+    return leftBoundary && rightBoundary;
+  }
+
+  private findPreviousNonWhitespace(index: number): string | null {
+    let cursor = index;
+    while (cursor >= 0) {
+      const ch = this.text[cursor];
+      if (ch !== " " && ch !== "\t") {
+        return ch;
+      }
+      cursor--;
+    }
+    return null;
+  }
+
+  private findNextNonWhitespace(index: number): string | null {
+    let cursor = index;
+    while (cursor < this.text.length) {
+      const ch = this.text[cursor];
+      if (ch !== " " && ch !== "\t") {
+        return ch;
+      }
+      cursor++;
+    }
+    return null;
   }
 
   /**
@@ -199,18 +295,27 @@ export function parseInlineStyles(text: string): TextSegment[] {
 
       case TokenType.TEXT:
       case TokenType.CODE:
+      case TokenType.INLINE_MATH:
+      case TokenType.DISPLAY_MATH:
         const seg = new TextSegment();
-        seg.content = token.value;
+        seg.rawContent = token.value;
+        seg.content =
+          token.type === TokenType.INLINE_MATH || token.type === TokenType.DISPLAY_MATH
+            ? renderLatexToText(token.value)
+            : token.value;
         seg.isBold = bold;
         seg.isItalic = italic;
         seg.isStrikethrough = strike;
         seg.isCode = token.type === TokenType.CODE;
+        seg.isMath = token.type === TokenType.INLINE_MATH || token.type === TokenType.DISPLAY_MATH;
+        seg.isMathDisplay = token.type === TokenType.DISPLAY_MATH;
         segments.push(seg);
         break;
 
       case TokenType.LINK_TEXT:
         const linkSeg = new TextSegment();
         linkSeg.content = token.value;
+        linkSeg.rawContent = token.value;
         linkSeg.isBold = bold;
         linkSeg.isItalic = italic;
         linkSeg.isStrikethrough = strike;
@@ -236,6 +341,13 @@ function mergeSegments(segments: TextSegment[]): TextSegment[] {
   for (let i = 1; i < segments.length; i++) {
     const next = segments[i];
 
+    // Keep math segments isolated so renderers can preserve equation boundaries.
+    if (current.isMath || next.isMath) {
+      result.push(current);
+      current = next;
+      continue;
+    }
+
     // Don't merge links with different URLs
     if (current.isLink || next.isLink) {
       if (current.isLink !== next.isLink || current.linkUrl !== next.linkUrl) {
@@ -247,6 +359,8 @@ function mergeSegments(segments: TextSegment[]): TextSegment[] {
 
     const sameStyle =
       current.isCode === next.isCode &&
+      current.isMath === next.isMath &&
+      current.isMathDisplay === next.isMathDisplay &&
       current.isBold === next.isBold &&
       current.isItalic === next.isItalic &&
       current.isStrikethrough === next.isStrikethrough &&

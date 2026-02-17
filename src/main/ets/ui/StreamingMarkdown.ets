@@ -114,7 +114,12 @@ export struct StreamingMarkdown {
         ListItem() {
           BlockView({ block: block })
         }
-      }, (block: Block) => block.id.toString() + "_" + block.text.length)
+      }, (block: Block) => {
+        if (block.type === 'table') {
+          return `${block.id}_${block.version || 0}`;
+        }
+        return block.id.toString() + "_" + block.text.length
+      })
     }
   }
 }

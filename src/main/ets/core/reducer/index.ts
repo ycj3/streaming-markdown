@@ -10,6 +10,7 @@ import {
   OrderedListReducer,
   BlockquoteReducer,
   HorizontalRuleReducer,
+  TableReducer,
 } from "./reducers";
 import { ReducerRegistry, createDefaultRegistry } from "./registry";
 import {
@@ -31,6 +32,7 @@ export {
   OrderedListReducer,
   BlockquoteReducer,
   HorizontalRuleReducer,
+  TableReducer,
 } from "./reducers";
 
 /**
@@ -67,6 +69,7 @@ export class BlockReducer {
   private orderedListReducer: OrderedListReducer;
   private blockquoteReducer: BlockquoteReducer;
   private horizontalRuleReducer: HorizontalRuleReducer;
+  private tableReducer: TableReducer;
 
   constructor(registry?: ReducerRegistry) {
     // Initialize context
@@ -80,6 +83,7 @@ export class BlockReducer {
     this.orderedListReducer = new OrderedListReducer();
     this.blockquoteReducer = new BlockquoteReducer();
     this.horizontalRuleReducer = new HorizontalRuleReducer();
+    this.tableReducer = new TableReducer();
     const paragraphReducer = new ParagraphReducer();
 
     // Use provided registry or create default
@@ -93,7 +97,8 @@ export class BlockReducer {
         this.listReducer,
         this.orderedListReducer,
         this.blockquoteReducer,
-        this.horizontalRuleReducer
+        this.horizontalRuleReducer,
+        this.tableReducer
       );
   }
 
@@ -108,6 +113,7 @@ export class BlockReducer {
    * 5. Route to current mode's Reducer
    */
   push(char: string): BlockDiff[] {
+    console.log(`[BlockReducer] push: char='${JSON.stringify(char)}', mode=${this.context.mode}`);
     const diffs: BlockDiff[] = [];
 
     // Handle backtick accumulation
@@ -137,8 +143,23 @@ export class BlockReducer {
       }
     }
 
+    // Check if we need to exit table mode
+    if (this.context.mode === ParseMode.Table) {
+      console.log(`[BlockReducer] checkTableExit: char='${JSON.stringify(char)}', state=${this.context.tableState}, buffer='${this.context.tableCellBuffer}', rowLen=${this.context.tableCurrentRow.length}`);
+      const tableExitResult = this.checkTableExit(char);
+      if (tableExitResult) {
+        console.log(`[BlockReducer] checkTableExit: ENDING table`);
+        diffs.push(...tableExitResult.diffs);
+        // Mode has been changed to Paragraph in checkTableExit
+      } else {
+        console.log(`[BlockReducer] checkTableExit: staying in table`);
+      }
+    }
+
     // Detect mode switch triggers
+    console.log(`[BlockReducer] calling checkTriggers for char='${JSON.stringify(char)}'`);
     const triggerResult = this.checkTriggers(char);
+    console.log(`[BlockReducer] checkTriggers result: ${triggerResult ? 'matched' : 'null'}`);
     if (triggerResult) {
       diffs.push(...triggerResult.diffs);
       if (triggerResult.newMode) {
@@ -206,6 +227,12 @@ export class BlockReducer {
       }
     }
 
+    // Handle incomplete table
+    if (this.context.mode === ParseMode.Table) {
+      const result = this.tableReducer.endTable(this.context);
+      diffs.push(...result.diffs);
+    }
+
     // Reset state
     this.resetState();
 
@@ -255,6 +282,7 @@ export class BlockReducer {
    * Returns processing result or null
    */
   private checkTriggers(char: string): ReducerResult | null {
+    console.log(`[BlockReducer] checkTriggers: char='${char}', mode=${this.context.mode}`);
     // Check heading trigger
     if (this.headingReducer.canStartHeading(char, this.context)) {
       return this.headingReducer.startHeading(this.context);
@@ -285,6 +313,12 @@ export class BlockReducer {
       return this.inlineCodeReducer.startInlineCode(this.context);
     }
 
+    // Check table trigger
+    if (this.tableReducer.canStartTable(char, this.context)) {
+      console.log(`[BlockReducer] Table trigger matched!`);
+      return this.tableReducer.startTable(this.context);
+    }
+
     return null;
   }
 
@@ -300,6 +334,12 @@ export class BlockReducer {
     this.context.orderedListNumber = 0;
     this.context.taskListChecked = null;
     this.context.hrDashCount = 0;
+    this.context.tableState = null;
+    this.context.tableHeaders = [];
+    this.context.tableAlignments = [];
+    this.context.tableRows = [];
+    this.context.tableCurrentRow = [];
+    this.context.tableCellBuffer = '';
   }
 
   /**
@@ -314,5 +354,38 @@ export class BlockReducer {
    */
   getCurrentMode(): ParseMode {
     return this.context.mode;
+  }
+
+  /**
+   * Check if we need to exit table mode
+   * Table ends when:
+   * 1. Empty line (newline when cell buffer is empty and no current row data)
+   * 2. Line not starting with | (after we've completed at least the separator row)
+   * Returns processing result or null if should stay in table mode
+   */
+  private checkTableExit(char: string): ReducerResult | null {
+    // Only check in table mode
+    if (this.context.mode !== ParseMode.Table) {
+      return null;
+    }
+
+    const tableState = this.context.tableState;
+    const cellBuffer = this.context.tableCellBuffer;
+    const currentRow = this.context.tableCurrentRow;
+
+    console.log(`[BlockReducer] checkTableExit CHECK: char='${JSON.stringify(char)}', state=${tableState}, buffer='${cellBuffer}', rowLen=${currentRow.length}`);
+
+    // Empty line ends table (but only after we've processed the separator row)
+    if (char === '\n' && tableState === 'rows' && cellBuffer === '' && currentRow.length === 0) {
+      console.log(`[BlockReducer] checkTableExit: ending table due to empty line in rows state`);
+      // End table mode
+      const result = this.tableReducer.endTable(this.context);
+      return result;
+    }
+
+    // Note: We don't exit table mode just because we see a non-| character.
+    // In rows state, only empty line (\n with no content) ends the table.
+    console.log(`[BlockReducer] checkTableExit: NOT ending table`);
+    return null;
   }
 }

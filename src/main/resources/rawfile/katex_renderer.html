@@ -1,0 +1,230 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="./katex/katex.min.css" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: #1a1a1a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+    #math-root {
+      margin: 0;
+      padding: 4px 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+    }
+    #math-root.mixed {
+      white-space: normal;
+      overflow: visible;
+      line-height: 1.7;
+      font-size: 16px;
+      color: #333;
+    }
+    #math-root .text {
+      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+    #math-root .text.bold { font-weight: 700; }
+    #math-root .text.italic { font-style: italic; }
+    #math-root .text.strike { text-decoration: line-through; }
+    #math-root .text.code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #d32f2f;
+      background: #f5f5f5;
+      border-radius: 4px;
+      padding: 1px 3px;
+    }
+    #math-root a.text.link {
+      color: #1976D2;
+      text-decoration: underline;
+    }
+    #math-root .math-inline {
+      display: inline-block;
+      vertical-align: -0.2em;
+      margin: 0 2px;
+    }
+    #math-root .math-display {
+      display: block;
+      text-align: center;
+      margin: 10px 0;
+      width: 100%;
+    }
+    #math-root.display {
+      white-space: normal;
+      padding: 8px 0;
+      text-align: center;
+    }
+    #fallback {
+      color: #666;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      display: none;
+      padding: 4px 0;
+    }
+  </style>
+  <script defer src="./katex/katex.min.js"></script>
+  <script>
+    function renderWithKatex(latex, displayMode) {
+      var root = document.getElementById('math-root');
+      var fallback = document.getElementById('fallback');
+      if (!root || !fallback) {
+        return;
+      }
+
+      fallback.style.display = 'none';
+      root.className = displayMode ? 'display' : '';
+
+      if (window.katex && window.katex.render) {
+        try {
+          window.katex.render(latex, root, {
+            throwOnError: false,
+            displayMode: !!displayMode,
+            strict: 'ignore'
+          });
+        } catch (e) {
+          root.textContent = '';
+          fallback.style.display = 'block';
+          fallback.textContent = latex;
+        }
+      } else {
+        root.textContent = '';
+        fallback.style.display = 'block';
+        fallback.textContent = 'KaTeX static assets not found. Showing plain LaTeX:\n' + latex;
+      }
+    }
+
+    window.renderEquation = function(latex, displayMode) {
+      var tryRender = function() {
+        renderWithKatex(latex || '', !!displayMode);
+      };
+      // Wait for deferred KaTeX script if needed.
+      if (!window.katex) {
+        setTimeout(tryRender, 50);
+      } else {
+        tryRender();
+      }
+    };
+
+    window.renderMixed = function(segments) {
+      var root = document.getElementById('math-root');
+      var fallback = document.getElementById('fallback');
+      if (!root || !fallback) {
+        return;
+      }
+
+      root.className = 'mixed';
+      root.innerHTML = '';
+      fallback.style.display = 'none';
+
+      if (!Array.isArray(segments)) {
+        fallback.style.display = 'block';
+        fallback.textContent = 'Invalid math payload.';
+        return;
+      }
+
+      function normalizeLatex(input) {
+        var latex = (input || '').trim();
+        // ArkTS/JS string escaping can turn \f in \frac into form-feed (U+000C).
+        // Recover it before command normalization.
+        latex = latex.replace(/\u000c/g, 'f');
+        // Some transports may drop the leading 'f' from frac and leave "rac".
+        latex = latex.replace(/(^|[^A-Za-z\\])rac(?=[\s{_^]|$)/g, '$1frac');
+        // If input comes from escaped string literals, commands may become \\frac.
+        // KaTeX expects single leading backslash.
+        latex = latex.replace(/\\\\([A-Za-z]+)/g, '\\$1');
+        // Recover common commands when backslash is lost in transport.
+        latex = latex.replace(/(^|[^A-Za-z\\])(frac|sqrt|pm|times|cdot|int|sum|prod)(?=[\s{_^]|$)/g, '$1\\$2');
+        return latex;
+      }
+
+      function renderMathToNode(latex, displayMode, className) {
+        var mathContainer = document.createElement(displayMode ? 'div' : 'span');
+        mathContainer.className = className;
+        var normalized = normalizeLatex(latex);
+        if (window.katex && window.katex.render) {
+          try {
+            window.katex.render(normalized || '', mathContainer, {
+              throwOnError: false,
+              displayMode: !!displayMode,
+              strict: 'ignore'
+            });
+          } catch (e) {
+            mathContainer.textContent = normalized || '';
+          }
+        } else {
+          mathContainer.textContent = normalized || '';
+        }
+        return mathContainer;
+      }
+
+      function appendPlainTextNode(parent, seg, textContent) {
+        if (!textContent) return;
+        var el = seg.isLink ? document.createElement('a') : document.createElement('span');
+        var classes = ['text'];
+        if (seg.isBold) classes.push('bold');
+        if (seg.isItalic) classes.push('italic');
+        if (seg.isStrikethrough) classes.push('strike');
+        if (seg.isCode) classes.push('code');
+        if (seg.isLink) classes.push('link');
+        el.className = classes.join(' ');
+        el.textContent = textContent;
+        if (seg.isLink && seg.linkUrl) {
+          el.setAttribute('href', seg.linkUrl);
+          el.setAttribute('target', '_blank');
+          el.setAttribute('rel', 'noopener noreferrer');
+        }
+        parent.appendChild(el);
+      }
+
+      // Fallback inline parser for "$...$" and "$$...$$" inside plain text segments.
+      // This ensures inline math still works even if upstream tokenization misses a case.
+      function appendTextWithInlineMath(parent, seg) {
+        var text = seg.content || '';
+        // Support both raw delimiters and escaped delimiters:
+        // - $$...$$ / $...$
+        // - \$$...\$$ / \$...\$
+        var regex = /\\\$\$([\s\S]+?)\\\$\$|\$\$([\s\S]+?)\$\$|\\\$([\s\S]+?)\\\$|\$([^$]+?)\$/g;
+        var last = 0;
+        var match;
+        while ((match = regex.exec(text)) !== null) {
+          if (match.index > last) {
+            appendPlainTextNode(parent, seg, text.substring(last, match.index));
+          }
+          var latex = match[1] || match[2] || match[3] || match[4] || '';
+          parent.appendChild(renderMathToNode(latex, false, 'math-inline'));
+          last = regex.lastIndex;
+        }
+        if (last < text.length) {
+          appendPlainTextNode(parent, seg, text.substring(last));
+        }
+      }
+
+      for (var i = 0; i < segments.length; i++) {
+        var seg = segments[i] || {};
+        if (seg.type === 'math') {
+          root.appendChild(
+            renderMathToNode(
+              seg.content || '',
+              !!seg.isMathDisplay,
+              seg.isMathDisplay ? 'math-display' : 'math-inline'
+            )
+          );
+          continue;
+        }
+        appendTextWithInlineMath(root, seg);
+      }
+    };
+  </script>
+</head>
+<body>
+  <div id="math-root"></div>
+  <div id="fallback"></div>
+</body>
+</html>

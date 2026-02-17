@@ -56,9 +56,22 @@ export type HorizontalRuleBlock = {
   text: ''  // Empty text, for type compatibility
 }
 
+export type TableBlock = {
+  id: number
+  type: 'table'
+  headers: string[]  
+  rows: string[][]   
+  alignments: ('left' | 'center' | 'right' | null)[]  
+  version: number // Used to track data changes
+  text: ''
+}
+
 export class TextSegment {
   content: string = ""
+  rawContent: string = ""
   isCode: boolean = false
+  isMath: boolean = false
+  isMathDisplay: boolean = false
   isBold: boolean = false
   isItalic: boolean = false
   isStrikethrough: boolean = false
@@ -66,7 +79,7 @@ export class TextSegment {
   linkUrl: string = ""
 }
 
-export type Block = ParagraphBlock | CodeBlock | HeadingBlock | InlineCodeBlock | ListItemBlock | OrderedListItemBlock | TaskListItemBlock | BlockquoteBlock | HorizontalRuleBlock
+export type Block = ParagraphBlock | CodeBlock | HeadingBlock | InlineCodeBlock | ListItemBlock | OrderedListItemBlock | TaskListItemBlock | BlockquoteBlock | HorizontalRuleBlock | TableBlock
 
 export type BlockDiff =
   | { kind: 'append'; block: Block }
