@@ -1,126 +1,45 @@
 # @ycj3/streaming-markdown
 
-A streaming markdown renderer for HarmonyOS ArkTS, designed for real-time LLM chat interfaces.
+A streaming Markdown renderer for HarmonyOS ArkTS (V2 stream-only).
 
 > [中文版本](./README.md)
 
----
-
-## Features
-
-- **Real-time Streaming**: Supports real-time streaming content like LLM output, updates instantly as input arrives
-- **Block-based Architecture**: Efficient updates via immutable diffs, only re-renders changed parts
-- **Rendering Animation Modes**: Three rendering granularities adapting to different LLM vendor styles
-  - `char` - Character by character (default, smooth and detailed)
-  - `word` - Word by word (similar to GPT-4 style)
-  - `chunk` - Sentence/chunk by chunk (similar to Claude style)
-- **Supported Markdown Syntax**:
-  - Headings (`# H1` to `###### H6`)
-  - Paragraphs with rich inline styles
-  - **Bold** (`**text**`), _Italic_ (`*text*`), **_Bold + Italic_** (`***text***`)
-  - ~~Strikethrough~~ (`~~text~~`)
-  - Inline code (`` `code` ``)
-  - LaTeX math expressions
-    - Inline math (`$E=mc^2$`)
-    - Display math (`$$\int_a^b f(x)\,dx$$`)
-    - In ArkTS string literals, use escaped backslashes: `$$\\int_a^b f(x)\\,dx$$`
-    - Equations in paragraphs use WebView + KaTeX for professional typesetting (local static assets)
-    - Put KaTeX files under `src/main/resources/rawfile/katex/`:
-      - `katex.min.js`
-      - `katex.min.css`
-      - `fonts/` (KaTeX font directory)
-    - Recommended KaTeX version: `0.16.21` (matches bundled static assets)
-    - Auto-copy script: `bash scripts/setup-katex-static.sh`
-  - [Links](https://example.com) (`[text](url)`)
-  - Unordered lists (`- item`)
-  - Ordered lists (`1. item`)
-  - Task lists (`- [x] Done` / `- [ ] Todo`)
-  - Blockquotes (`> quote`)
-  - Horizontal rules (`---`)
-  - Tables (GFM style, e.g. `| col1 | col2 |`)
-  - Fenced code blocks (` ```lang `)
-    - Copy button
-    - Syntax highlighting
-
----
-
-## Installation
-
-### Option 1: ohpm install (Recommended)
+## Install
 
 ```bash
 ohpm install @ycj3/streaming-markdown
 ```
 
-Or in DevEco Studio:
+## 10-Min Quick Start (Copy and Run)
 
-1. Open `entry/oh-package.json5`
-2. Click the `+` button next to dependencies
-3. Search for `@ycj3/streaming-markdown` and add it
+Fastest path: copy `examples/minimal-v2/QuickStartDemo.ets` into your ArkTS page.
 
-### Option 2: Local HAR Module (Development)
+1. Install dependency.
+2. Copy the whole file from `examples/minimal-v2/QuickStartDemo.ets`.
+3. Run and click: `本地模拟流` / `SSE(mock)` / `WebSocket(mock)`.
+4. You should see streaming updates and final `completed` status.
 
-Add to your project's `entry/oh-package.json5`:
+Note: the repo previously had no copy-ready V2 minimal demo. We added `examples/minimal-v2/` without migrating old examples.
 
-```json5
-{
-  dependencies: {
-    "@ycj3/streaming-markdown": "file:../../streaming-markdown",
-  },
-}
-```
-
-Also, add the module declaration in your project's `build-profile.json5`:
-
-```json5
-{
-  modules: [
-    {
-      name: "entry",
-      srcPath: "./entry"
-    },
-    {
-      name: "streaming_markdown",
-      srcPath: "../streaming-markdown"
-    }
-  ]
-}
-```
-
-Then sync the project in DevEco Studio.
-
----
-
-## Usage
-
-> 💡 **[View Full Demo Project](https://github.com/ycj3/streaming-markdown-demo)** - Complete examples including mode switching and replay functionality
-
-### Basic Usage
-
-Just pass `text` and `mode`, the component handles streaming internally:
+## Minimal Integration (append/finish only)
 
 ```typescript
-import { StreamingMarkdown } from '@ycj3/streaming-markdown'
+import { MarkdownStream, StreamingMarkdown } from '@ycj3/streaming-markdown'
 
 @Entry
 @Component
-struct MyPage {
-  private markdown = `# Hello StreamingMarkdown
+struct MinimalPage {
+  private stream: MarkdownStream = new MarkdownStream({ mode: 'word', interval: 20 })
 
-This is **bold** and *italic* text.
-
-\`\`\`typescript
-console.log("Hello World");
-\`\`\`
-`
+  aboutToAppear() {
+    this.stream.append('# Hello\n\n')
+    this.stream.append('This is incremental streamed content.\n')
+    this.stream.finish()
+  }
 
   build() {
     Scroll() {
-      StreamingMarkdown({ 
-        text: this.markdown,
-        mode: 'char'  // render mode: char | word | chunk
-      })
-        .padding(16)
+      StreamingMarkdown({ stream: this.stream })
     }
     .width('100%')
     .height('100%')
@@ -128,118 +47,56 @@ console.log("Hello World");
 }
 ```
 
-### Different Rendering Modes
+## Input Examples Included
 
-```typescript
-import { StreamingMarkdown, StreamingMode } from '@ycj3/streaming-markdown'
+- Local mock stream (`append` + `finish`)
+- SSE (mock, `[DONE]` -> `finish`)
+- WebSocket (mock, `close` -> `finish`)
 
-@Entry
-@Component
-struct MyPage {
-  @State mode: StreamingMode = 'word'
-  // Use key to force component re-creation for replay
-  @State renderKey: number = 0
+Full runnable page: `examples/minimal-v2/QuickStartDemo.ets`.
 
-  build() {
-    Column() {
-      // Mode switch buttons
-      Row() {
-        Button('Char').onClick(() => {
-          this.mode = 'char'
-          this.renderKey++
-        })
-        Button('Word').onClick(() => {
-          this.mode = 'word'
-          this.renderKey++
-        })
-        Button('Chunk').onClick(() => {
-          this.mode = 'chunk'
-          this.renderKey++
-        })
-        Button('Replay').onClick(() => this.renderKey++)
-      }
+## V2 API (stream-only)
 
-      // Streaming component - use .key() to force re-creation
-      StreamingMarkdown({
-        text: '# Hello World\n\nThis is a **test**.',
-        mode: this.mode,
-        interval: 30,        // render interval (ms)
-        onComplete: () => {
-          console.log('Done!')
-        }
-      })
-        .key(`markdown_${this.mode}_${this.renderKey}`)
-    }
-  }
-}
+### `MarkdownStream`
+
+```ts
+new MarkdownStream(options?)
+stream.append(chunk: string)
+stream.finish()
+stream.pause()
+stream.resume()
+stream.reset()
+stream.subscribe(listener)
+stream.onComplete(listener)
 ```
 
-### Render Modes
+### `StreamingMarkdown`
 
-| Mode | Effect | Use Case |
-|------|--------|----------|
-| `char` | Character by character | Default, smooth |
-| `word` | Word by word | Similar to GPT-4 |
-| `chunk` | Sentence/chunk by chunk | Similar to Claude |
-
----
-
-## API Reference
-
-### `StreamingMarkdown` Component
-
-Streaming markdown render component, internally encapsulates controller and timer logic.
-
-**Props**:
-
-| Property | Type | Default | Description |
-| -------- | ---- | ------- | ----------- |
-| `text` | `string` | `''` | Markdown text to render |
-| `mode` | `'char' \| 'word' \| 'chunk'` | `'char'` | Render animation mode |
-| `interval` | `number` | `30` | Render interval (milliseconds) |
-| `onComplete` | `() => void` | - | Completion callback |
-
-**Replay**: Use `ForEach` + `key` pattern to force component re-creation:
-
-```typescript
-@State renderKey: number = 0
-
-// Click Replay
-this.renderKey++
-
-// Render
-ForEach([this.renderKey], () => {
-  StreamingMarkdown({ text, mode, interval })
-}, (key) => key.toString())
+```ts
+StreamingMarkdown({
+  stream: MarkdownStream,
+  onComplete?: () => void
+})
 ```
 
----
+## Demo vs Production
 
-## Architecture
+- Demo uses in-memory mock connections; production should use real network/SDK connections.
+- Demo uses `openaiLikeProfile`; production should extend `VendorProfile` per vendor protocol.
+- Demo does not include auth, retry, timeout, reconnect.
+- Demo is single text stream; multi-channel streams (tool/reasoning) need routing before feeding `stream`.
 
-```
-Data Input     Parser       Diff Updates   UI Component
-   │            │               │            │
-   ▼            ▼               ▼            ▼
-┌────────┐  ┌──────────┐    ┌────────┐   ┌──────────┐
-│ Char   │─▶│BlockReducer│─▶│BlockDiff│──▶│StreamingMarkdown│
-│ Stream │  │(State Machine)│  │(Immutable)│   │(ArkTS List)│
-└────────┘  └──────────┘    └────────┘   └──────────┘
-```
+## Docs
 
-The parser uses a state machine with diff-based updates for efficient rendering of streaming content.
-
----
+- 10-min guide: `docs/quickstart-10min.md`
+- Vendor integration: `docs/vendor-integration.md`
+- Architecture: `docs/architecture.md`
 
 ## Requirements
 
 - HarmonyOS API 6.0.1+
 - DevEco Studio 4.0+
 
----
-
 ## License
 
 Apache-2.0
-
-For bundled third-party licenses (including KaTeX MIT), see `THIRD_PARTY_LICENSES.md`.
