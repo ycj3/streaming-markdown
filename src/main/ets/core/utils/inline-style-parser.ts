@@ -59,9 +59,12 @@ class Tokenizer {
 
       // 2. Math: $$display$$ first, then $inline$
       if (char === "$" && !this.isEscaped(this.pos)) {
-        const isDisplay = next === "$";
-        const math = this.parseMath(isDisplay ? 2 : 1);
+        const hasDoubleDelimiter = next === "$";
+        const math = this.parseMath(hasDoubleDelimiter ? 2 : 1);
         if (math) {
+          const isDisplay =
+            hasDoubleDelimiter &&
+            this.shouldTreatDoubleDollarAsDisplay(this.pos, math.newPos);
           tokens.push({
             type: isDisplay ? TokenType.DISPLAY_MATH : TokenType.INLINE_MATH,
             value: math.content,
@@ -188,6 +191,45 @@ class Tokenizer {
       cursor++;
     }
 
+    return null;
+  }
+
+  /**
+   * For $$...$$:
+   * - Treat as display math only when it is effectively isolated on its own line.
+   * - If embedded in sentence text, treat as inline math for better UX compatibility.
+   */
+  private shouldTreatDoubleDollarAsDisplay(startPos: number, endPos: number): boolean {
+    const prev = this.findPreviousNonWhitespace(startPos - 1);
+    const next = this.findNextNonWhitespace(endPos);
+
+    const leftBoundary = prev === null || prev === "\n" || prev === "\r";
+    const rightBoundary = next === null || next === "\n" || next === "\r";
+
+    return leftBoundary && rightBoundary;
+  }
+
+  private findPreviousNonWhitespace(index: number): string | null {
+    let cursor = index;
+    while (cursor >= 0) {
+      const ch = this.text[cursor];
+      if (ch !== " " && ch !== "\t") {
+        return ch;
+      }
+      cursor--;
+    }
+    return null;
+  }
+
+  private findNextNonWhitespace(index: number): string | null {
+    let cursor = index;
+    while (cursor < this.text.length) {
+      const ch = this.text[cursor];
+      if (ch !== " " && ch !== "\t") {
+        return ch;
+      }
+      cursor++;
+    }
     return null;
   }
 

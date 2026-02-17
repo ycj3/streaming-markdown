@@ -29,6 +29,7 @@ HarmonyOS ArkTS 流式 Markdown 渲染器，专为实时 LLM 对话界面设计�
       - `katex.min.js`
       - `katex.min.css`
       - `fonts/`（KaTeX 字体目录）
+    - 建议使用 KaTeX `0.16.21`（当前仓库静态资源版本）
     - 可使用脚本自动拷贝：`bash scripts/setup-katex-static.sh`
   - [链接](https://example.com) (`[text](url)`)
   - 无序列表 (`- item`)
@@ -36,6 +37,7 @@ HarmonyOS ArkTS 流式 Markdown 渲染器，专为实时 LLM 对话界面设计�
   - 任务列表 (`- [x] 已完成` / `- [ ] 未完成`)
   - 引用块 (`> quote`)
   - 分割线 (`---`)
+  - 表格（GFM 风格 `| col1 | col2 |`）
   - 代码块 (` ```lang `)
     - 复制按钮
     - 语法高亮
@@ -239,3 +241,5 @@ ForEach([this.renderKey], () => {
 ## 许可证
 
 Apache-2.0
+
+第三方许可证见 `THIRD_PARTY_LICENSES.md`（包含 KaTeX MIT 许可）。

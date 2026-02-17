@@ -29,6 +29,7 @@ A streaming markdown renderer for HarmonyOS ArkTS, designed for real-time LLM ch
       - `katex.min.js`
       - `katex.min.css`
       - `fonts/` (KaTeX font directory)
+    - Recommended KaTeX version: `0.16.21` (matches bundled static assets)
     - Auto-copy script: `bash scripts/setup-katex-static.sh`
   - [Links](https://example.com) (`[text](url)`)
   - Unordered lists (`- item`)
@@ -36,6 +37,7 @@ A streaming markdown renderer for HarmonyOS ArkTS, designed for real-time LLM ch
   - Task lists (`- [x] Done` / `- [ ] Todo`)
   - Blockquotes (`> quote`)
   - Horizontal rules (`---`)
+  - Tables (GFM style, e.g. `| col1 | col2 |`)
   - Fenced code blocks (` ```lang `)
     - Copy button
     - Syntax highlighting
@@ -239,3 +241,5 @@ The parser uses a state machine with diff-based updates for efficient rendering 
 ## License
 
 Apache-2.0
+
+For bundled third-party licenses (including KaTeX MIT), see `THIRD_PARTY_LICENSES.md`.

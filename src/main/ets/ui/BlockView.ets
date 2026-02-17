@@ -1,7 +1,7 @@
 import { Block, CodeBlock, TextSegment, HeadingBlock, ListItemBlock, OrderedListItemBlock, TaskListItemBlock, BlockquoteBlock, HorizontalRuleBlock, TableBlock } from '../core/protocol'
 import { CodeBlockHeader } from './code-block/CodeBlockHeader'
 import { CodeBlockBody } from './code-block/CodeBlockBody'
-import { MathEquationView } from './MathEquationView'
+import { MathParagraphView } from './MathParagraphView'
 import { parseInlineStyles } from '../core/utils/inline-style-parser'
 import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
@@ -59,65 +59,40 @@ export struct BlockView {
     return seg.isMathDisplay ? baseSize + 2 : baseSize
   }
 
-  private hasDisplayMathSegments(text: string): boolean {
+  private hasMathSegments(text: string): boolean {
     const segments = this.parseSegments(text)
     for (const seg of segments) {
-      if (seg.isMathDisplay) {
+      if (seg.isMath) {
         return true
       }
     }
     return false
   }
 
-  @Builder
-  private buildParagraphWithKatex(text: string) {
-    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, alignItems: ItemAlign.Center }) {
-      ForEach(this.parseSegments(text), (seg: TextSegment, index: number) => {
-        if (seg.isMath) {
-          if (seg.isMathDisplay) {
-            MathEquationView({
-              latex: seg.rawContent || seg.content,
-              displayMode: true
-            })
-              .width('100%')
-              .height(120)
-              .margin({ top: 6, bottom: 6 })
-          } else {
-            Text(seg.content)
-              .fontSize(17)
-              .fontFamily('monospace')
-              .fontColor('#0D47A1')
-              .backgroundColor('#EEF3FF')
-              .borderRadius(4)
-              .padding({ left: 2, right: 2, top: 1, bottom: 1 })
-              .margin({ right: 2 })
-          }
-        } else {
-          Text(seg.content)
-            .fontSize(this.getSegmentFontSize(seg, 16))
-            .fontFamily(this.getSegmentFontFamily(seg))
-            .fontColor(this.getSegmentFontColor(seg, '#333333'))
-            .fontWeight(seg.isBold ? FontWeight.Bold : FontWeight.Normal)
-            .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
-            .decoration({
-              type: this.getSegmentDecorationType(seg),
-              color: this.getSegmentFontColor(seg, '#333333')
-            })
-            .backgroundColor(seg.isCode ? '#F5F5F5' : Color.Transparent)
-            .borderRadius(seg.isCode ? 4 : 0)
-            .onClick(() => {
-              if (seg.isLink && seg.linkUrl) {
-                this.openLink(seg.linkUrl);
-              }
-            })
-            .margin({ right: 2 })
-        }
-      }, (seg: TextSegment, index: number) => {
-        return `${index}_${seg.rawContent}_${seg.content.length}`
-      })
+  private getMathParagraphHeight(text: string): number {
+    const segments = this.parseSegments(text)
+    let displayCount = 0
+    let inlineCount = 0
+    let plainLength = 0
+    for (const seg of segments) {
+      if (seg.isMathDisplay) {
+        displayCount++
+      } else if (seg.isMath) {
+        inlineCount++
+      } else {
+        plainLength += seg.content.length
+      }
     }
-    .width('100%')
-    .margin({ bottom: 8 })
+
+    const textLines = Math.max(1, Math.ceil(plainLength / 42))
+    const estimated = textLines * 28 + inlineCount * 10 + displayCount * 140 + 20
+    if (estimated < 72) {
+      return 72
+    }
+    if (estimated > 620) {
+      return 620
+    }
+    return estimated
   }
 
   build() {
@@ -146,8 +121,13 @@ export struct BlockView {
         .width('100%')
         .margin({ top: 12, bottom: 8 })
       } else if (this.block.type === 'paragraph') {
-        if (this.hasDisplayMathSegments(this.block.text)) {
-          this.buildParagraphWithKatex(this.block.text)
+        if (this.hasMathSegments(this.block.text)) {
+          MathParagraphView({
+            text: this.block.text
+          })
+            .width('100%')
+            .height(this.getMathParagraphHeight(this.block.text))
+            .margin({ bottom: 8 })
         } else {
           Text() {
             ForEach(this.parseSegments(this.block.text), (seg: TextSegment) => {

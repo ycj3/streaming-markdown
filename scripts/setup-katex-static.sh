@@ -7,7 +7,7 @@ DST_DIR="${ROOT_DIR}/src/main/resources/rawfile/katex"
 
 if [[ ! -d "${SRC_DIR}" ]]; then
   echo "KaTeX dist not found at: ${SRC_DIR}"
-  echo "Install first: npm i katex@0.16.11"
+  echo "Install first: npm i katex@0.16.21"
   exit 1
 fi
 
