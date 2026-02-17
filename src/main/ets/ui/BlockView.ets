@@ -17,7 +17,7 @@ export struct BlockView {
 
   // Open link URL in system browser
   openLink(url: string) {
-    const context = getContext(this) as common.UIAbilityContext;
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
     context.openLink(url)
       .then(() => {})
       .catch((error: BusinessError) => {

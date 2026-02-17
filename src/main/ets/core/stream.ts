@@ -1,5 +1,5 @@
-import { BlockReducer } from "./reducer";
-import { BlockDiff } from "./protocol";
+import { BlockReducer } from './reducer'
+import { Block, BlockDiff } from './protocol'
 
 /**
  * Streaming render mode
@@ -10,9 +10,9 @@ import { BlockDiff } from "./protocol";
 export type StreamingMode = 'char' | 'word' | 'chunk'
 
 /**
- * Controller configuration options
+ * Stream configuration options
  */
-export interface StreamingMarkdownOptions {
+export interface MarkdownStreamOptions {
   /**
    * Streaming render mode, defaults to 'char'
    * - char: character by character, finest granularity
@@ -26,245 +26,307 @@ export interface StreamingMarkdownOptions {
   interval?: number
 }
 
-type Listener = (diff: BlockDiff) => void;
-type CompleteListener = () => void;
+type Listener = (diff: BlockDiff) => void
+
+type CompleteListener = () => void
+
+type ResetListener = () => void
 
 /**
- * Streaming state
+ * Stream state
  */
 export type StreamingState = 'idle' | 'streaming' | 'paused' | 'completed'
 
-export class StreamingMarkdownController {
-  private reducer = new BlockReducer();
-  private listeners: Listener[] = [];
-  private completeListeners: CompleteListener[] = [];
-  private mode: StreamingMode;
-  private interval: number;
-  
-  // Streaming state
-  private state: StreamingState = 'idle';
-  private text: string = '';
-  private position: number = 0;
-  private timer: number | null = null;
-  
-  // Buffer for word/chunk modes
-  private buffer: string = '';
+export class MarkdownStream {
+  private reducer: BlockReducer = new BlockReducer()
+  private listeners: Listener[] = []
+  private completeListeners: CompleteListener[] = []
+  private resetListeners: ResetListener[] = []
+  private mode: StreamingMode
+  private interval: number
 
-  constructor(options?: StreamingMarkdownOptions) {
-    this.mode = options?.mode ?? 'char';
-    this.interval = options?.interval ?? 30;
+  private state: StreamingState = 'idle'
+  private inputQueue: string = ''
+  private buffer: string = ''
+  private timer: number | null = null
+  private isInputFinished: boolean = false
+
+  constructor(options?: MarkdownStreamOptions) {
+    this.mode = options?.mode ?? 'char'
+    this.interval = options?.interval ?? 30
   }
 
   /**
-   * Start streaming the text content.
-   * This will automatically handle the rendering based on mode and interval.
-   * 
-   * @param text - Text content to stream
+   * Append new input chunk into stream queue
    */
-  start(text: string) {
-    if (this.state === 'streaming') {
-      this.stop();
+  append(chunk: string) {
+    if (chunk.length === 0) {
+      return
     }
-    
-    this.text = text;
-    this.position = 0;
-    this.buffer = '';
-    this.state = 'streaming';
-    
-    this.scheduleNext();
+
+    if (this.state === 'completed') {
+      this.reset()
+    }
+
+    this.inputQueue += chunk
+
+    if (this.state === 'idle') {
+      this.state = 'streaming'
+      this.scheduleNext()
+      return
+    }
+
+    if (this.state === 'streaming' && this.timer === null) {
+      this.scheduleNext()
+    }
   }
 
   /**
-   * Pause the streaming
+   * Mark input complete; stream will complete after queue drains
+   */
+  finish() {
+    this.isInputFinished = true
+
+    if (this.state === 'idle') {
+      this.complete()
+      return
+    }
+
+    if (this.state === 'streaming' && this.timer === null) {
+      this.scheduleNext()
+      return
+    }
+
+    if (this.state === 'paused' && this.inputQueue.length === 0 && this.buffer.length === 0) {
+      this.complete()
+    }
+  }
+
+  /**
+   * Pause the stream processing
    */
   pause() {
     if (this.state === 'streaming') {
-      this.clearTimer();
-      this.state = 'paused';
+      this.clearTimer()
+      this.state = 'paused'
     }
   }
 
   /**
-   * Resume the streaming
+   * Resume stream processing
    */
   resume() {
     if (this.state === 'paused') {
-      this.state = 'streaming';
-      this.scheduleNext();
+      this.state = 'streaming'
+      this.scheduleNext()
     }
   }
 
   /**
-   * Stop the streaming and reset state
+   * Reset the stream to initial state
    */
-  stop() {
-    this.clearTimer();
-    this.state = 'idle';
-    this.position = 0;
-    this.buffer = '';
+  reset() {
+    this.clearTimer()
+    this.reducer = new BlockReducer()
+    this.state = 'idle'
+    this.inputQueue = ''
+    this.buffer = ''
+    this.isInputFinished = false
+    this.resetListeners.forEach((listener) => listener())
   }
 
   /**
-   * Get current streaming state
+   * Get current stream state
    */
   getState(): StreamingState {
-    return this.state;
+    return this.state
   }
 
   /**
    * Get current render mode
    */
   getMode(): StreamingMode {
-    return this.mode;
+    return this.mode
   }
 
   /**
    * Get current interval
    */
   getInterval(): number {
-    return this.interval;
+    return this.interval
   }
 
   /**
    * Set render interval
    */
   setInterval(interval: number) {
-    this.interval = interval;
+    this.interval = interval
   }
 
-  /**
-   * Schedule the next render tick
-   */
   private scheduleNext() {
-    if (this.state !== 'streaming') {
-      return;
+    if (this.state !== 'streaming' || this.timer !== null) {
+      return
     }
-    
+
     this.timer = setTimeout(() => {
-      this.renderNext();
-    }, this.interval) as unknown as number;
+      this.timer = null
+      this.renderNext()
+    }, this.interval) as unknown as number
   }
 
-  /**
-   * Render the next chunk based on mode
-   */
   private renderNext() {
-    if (this.position >= this.text.length) {
-      // Flush remaining buffer
-      this.flushBuffer();
-      this.complete();
-      return;
+    if (this.state !== 'streaming') {
+      return
     }
-
-    const char = this.text.charAt(this.position);
-    this.position++;
 
     if (this.mode === 'char') {
-      // Char mode: render immediately
-      this.renderChar(char);
-      this.scheduleNext();
+      this.renderCharTick()
     } else if (this.mode === 'word') {
-      // Word mode: accumulate until boundary
-      this.buffer += char;
-      if (this.isWordBoundary(char)) {
-        this.flushBuffer();
+      this.renderWordTick()
+    } else {
+      this.renderChunkTick()
+    }
+
+    if (this.state !== 'streaming') {
+      return
+    }
+
+    if (this.inputQueue.length > 0) {
+      this.scheduleNext()
+      return
+    }
+
+    if (this.mode !== 'char' && this.buffer.length > 0) {
+      if (this.isInputFinished) {
+        this.flushBuffer()
+        this.complete()
       }
-      this.scheduleNext();
-    } else if (this.mode === 'chunk') {
-      // Chunk mode: accumulate until punctuation
-      this.buffer += char;
-      if (this.isChunkBoundary(char)) {
-        this.flushBuffer();
-      }
-      this.scheduleNext();
+      return
+    }
+
+    if (this.isInputFinished) {
+      this.complete()
     }
   }
 
-  /**
-   * Render a single character through the reducer
-   */
-  private renderChar(char: string) {
-    const diffs = this.reducer.push(char);
-    diffs.forEach((diff) => {
-      this.listeners.forEach((l) => l(diff));
-    });
+  private renderCharTick() {
+    if (this.inputQueue.length === 0) {
+      return
+    }
+
+    const char = this.inputQueue[0]
+    this.inputQueue = this.inputQueue.slice(1)
+    this.renderChar(char)
   }
 
-  /**
-   * Flush buffer content immediately
-   */
+  private renderWordTick() {
+    this.renderBufferedTick((char: string) => this.isWordBoundary(char))
+  }
+
+  private renderChunkTick() {
+    this.renderBufferedTick((char: string) => this.isChunkBoundary(char))
+  }
+
+  private renderBufferedTick(isBoundary: (char: string) => boolean) {
+    if (this.inputQueue.length === 0) {
+      return
+    }
+
+    const char = this.inputQueue[0]
+    this.inputQueue = this.inputQueue.slice(1)
+    this.buffer += char
+
+    if (isBoundary(char)) {
+      this.flushBuffer()
+    }
+  }
+
+  private renderChar(char: string) {
+    const diffs = this.reducer.push(char)
+    diffs.forEach((diff) => {
+      this.listeners.forEach((listener) => listener(diff))
+    })
+  }
+
   private flushBuffer() {
     if (this.buffer.length === 0) {
-      return;
+      return
     }
+
     for (const char of this.buffer) {
-      this.renderChar(char);
+      this.renderChar(char)
     }
-    this.buffer = '';
+
+    this.buffer = ''
   }
 
-  /**
-   * Complete the streaming
-   */
   private complete() {
-    this.clearTimer();
-    this.state = 'completed';
-    
-    const diffs = this.reducer.close();
+    this.clearTimer()
+    this.flushBuffer()
+
+    const diffs = this.reducer.close()
     diffs.forEach((diff) => {
-      this.listeners.forEach((l) => l(diff));
-    });
-    
-    this.completeListeners.forEach((l) => l());
+      this.listeners.forEach((listener) => listener(diff))
+    })
+
+    this.state = 'completed'
+    this.completeListeners.forEach((listener) => listener())
   }
 
-  /**
-   * Clear the timer
-   */
   private clearTimer() {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
+    if (this.timer !== null) {
+      clearTimeout(this.timer)
+      this.timer = null
     }
   }
 
-  /**
-   * Check if character is a word boundary (space, newline, tab)
-   */
   private isWordBoundary(char: string): boolean {
-    return char === ' ' || char === '\n' || char === '\t' || char === '\r';
+    return char === ' ' || char === '\n' || char === '\t' || char === '\r'
   }
 
-  /**
-   * Check if character is a chunk boundary (punctuation, newline)
-   * Supported punctuation: . ! ? 。 ！ ？ , ， ; ： : 
-   */
   private isChunkBoundary(char: string): boolean {
-    const boundaries = new Set(['\n', '\r', '.', '!', '?', '。', '！', '？', ',', '，', ';', '；', ':', '：']);
-    return boundaries.has(char);
+    const boundaries = new Set(['\n', '\r', '.', '!', '?', '。', '！', '？', ',', '，', ';', '；', ':', '：'])
+    return boundaries.has(char)
   }
 
   /**
    * Subscribe to block diff updates
    */
   subscribe(listener: Listener): () => void {
-    this.listeners.push(listener);
+    this.listeners.push(listener)
     return () => {
-      this.listeners = this.listeners.filter((l) => l !== listener);
-    };
+      this.listeners = this.listeners.filter((item) => item !== listener)
+    }
   }
 
   /**
    * Subscribe to completion event
    */
   onComplete(listener: CompleteListener): () => void {
-    this.completeListeners.push(listener);
+    this.completeListeners.push(listener)
     return () => {
-      this.completeListeners = this.completeListeners.filter((l) => l !== listener);
-    };
+      this.completeListeners = this.completeListeners.filter((item) => item !== listener)
+    }
+  }
+
+  /**
+   * Subscribe to reset event
+   */
+  onReset(listener: ResetListener): () => void {
+    this.resetListeners.push(listener)
+    return () => {
+      this.resetListeners = this.resetListeners.filter((item) => item !== listener)
+    }
+  }
+
+  /**
+   * Get current rendered blocks snapshot
+   */
+  getBlocks(): Block[] {
+    return this.reducer.getContext().blocks.map((block) => ({ ...block }))
   }
 }
 
-export function createStreamingMarkdown(options?: StreamingMarkdownOptions): StreamingMarkdownController {
-  return new StreamingMarkdownController(options);
+export function createMarkdownStream(options?: MarkdownStreamOptions): MarkdownStream {
+  return new MarkdownStream(options)
 }

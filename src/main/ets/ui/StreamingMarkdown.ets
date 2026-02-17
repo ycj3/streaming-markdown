@@ -1,31 +1,12 @@
-import { StreamingMarkdownController, StreamingMode } from '../core/stream'
+import { MarkdownStream } from '../core/stream'
 import { Block, BlockDiff } from '../core/protocol'
 import { BlockView } from './BlockView'
-
-/**
- * Streaming render mode
- * - char: character by character (default)
- * - word: word by word
- * - chunk: chunk/sentence by chunk
- */
-export type { StreamingMode }
 
 /**
  * Streaming Markdown component props
  */
 export interface StreamingMarkdownProps {
-  /**
-   * Text content to stream render
-   */
-  text: string
-  /**
-   * Streaming render mode, defaults to 'char'
-   */
-  mode?: StreamingMode
-  /**
-   * Render interval in milliseconds, defaults to 30ms
-   */
-  interval?: number
+  stream: MarkdownStream
   /**
    * Callback when streaming completes
    */
@@ -34,47 +15,26 @@ export interface StreamingMarkdownProps {
 
 @Component
 export struct StreamingMarkdown {
-  // Props
-  text: string = ''
-  mode: StreamingMode = 'char'
-  interval: number = 30
+  stream: MarkdownStream = new MarkdownStream()
   onComplete?: () => void
 
-  // Internal state
   @State private blocks: Block[] = []
-  private controller: StreamingMarkdownController | null = null
+  private unsubscribeDiff?: () => void
+  private unsubscribeComplete?: () => void
+  private unsubscribeReset?: () => void
 
   aboutToAppear() {
-    this.initAndStart()
+    this.bindStream()
   }
 
   aboutToDisappear() {
-    this.cleanup()
+    this.unbindStream()
   }
 
-  /**
-   * Initialize controller and start streaming
-   */
-  private initAndStart() {
-    // Clean up existing controller
-    this.cleanup()
-
-    // Reset blocks
-    this.blocks = []
-
-    // Skip if no text
-    if (this.text.length === 0) {
-      return
-    }
-
-    // Create new controller with current props
-    this.controller = new StreamingMarkdownController({
-      mode: this.mode,
-      interval: this.interval
-    })
-
-    // Subscribe to block updates
-    this.controller.subscribe((diff: BlockDiff) => {
+  private bindStream() {
+    this.unbindStream()
+    this.blocks = this.stream.getBlocks()
+    this.unsubscribeDiff = this.stream.subscribe((diff: BlockDiff) => {
       if (diff.kind === 'append') {
         this.blocks = [...this.blocks, diff.block]
       } else if (diff.kind === 'patch') {
@@ -87,24 +47,31 @@ export struct StreamingMarkdown {
       }
     })
 
-    // Subscribe to completion
-    this.controller.onComplete(() => {
+    this.unsubscribeComplete = this.stream.onComplete(() => {
       if (this.onComplete) {
         this.onComplete()
       }
     })
 
-    // Start streaming
-    this.controller.start(this.text)
+    this.unsubscribeReset = this.stream.onReset(() => {
+      this.blocks = []
+    })
   }
 
-  /**
-   * Clean up controller resources
-   */
-  private cleanup() {
-    if (this.controller) {
-      this.controller.stop()
-      this.controller = null
+  private unbindStream() {
+    if (this.unsubscribeDiff) {
+      this.unsubscribeDiff()
+      this.unsubscribeDiff = undefined
+    }
+
+    if (this.unsubscribeComplete) {
+      this.unsubscribeComplete()
+      this.unsubscribeComplete = undefined
+    }
+
+    if (this.unsubscribeReset) {
+      this.unsubscribeReset()
+      this.unsubscribeReset = undefined
     }
   }
 
