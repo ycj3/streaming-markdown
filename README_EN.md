@@ -6,15 +6,40 @@ A streaming Markdown renderer for HarmonyOS ArkTS (V2 stream-only).
 
 ## Install
 
+### Option 1: ohpm install (recommended)
+
 ```bash
 ohpm install @ycj3/streaming-markdown
+```
+
+### Option 2: Local file dependency (for development/debugging)
+
+Add this in `entry/oh-package.json5`:
+
+```json5
+{
+  dependencies: {
+    "@ycj3/streaming-markdown": "file:../../streaming-markdown",
+  },
+}
+```
+
+Add module declaration in `build-profile.json5`:
+
+```json5
+{
+  modules: [
+    { name: "entry", srcPath: "./entry" },
+    { name: "streaming_markdown", srcPath: "../streaming-markdown" },
+  ],
+}
 ```
 
 ## 10-Min Quick Start (Copy and Run)
 
 Fastest path: copy `examples/minimal-v2/QuickStartDemo.ets` into your ArkTS page.
 
-1. Install dependency.
+1. Complete either installation method above, then sync the project.
 2. Copy the whole file from `examples/minimal-v2/QuickStartDemo.ets`.
 3. Run and click: `本地模拟流` / `SSE(mock)` / `WebSocket(mock)`.
 4. You should see streaming updates and final `completed` status.
@@ -50,8 +75,8 @@ struct MinimalPage {
 ## Input Examples Included
 
 - Local mock stream (`append` + `finish`)
-- SSE (mock, `[DONE]` -> `finish`)
-- WebSocket (mock, `close` -> `finish`)
+- SSE (mock, chunked frames -> `append`, then `finish`)
+- WebSocket (mock, chunked messages -> `append`, then `finish`)
 
 Full runnable page: `examples/minimal-v2/QuickStartDemo.ets`.
 

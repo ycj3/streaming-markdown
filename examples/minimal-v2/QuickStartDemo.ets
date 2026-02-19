@@ -1,211 +1,74 @@
-import {
-  MarkdownStream,
-  StreamingMarkdown,
-  SSEAdapter,
-  WebSocketAdapter,
-  openaiLikeProfile,
-  bindAdapterToStream,
-  SseConnection,
-  SseMessage,
-  WebSocketConnection,
-} from '@ycj3/streaming-markdown'
-
-class MockSseConnection implements SseConnection {
-  private messageListeners: Array<(message: SseMessage) => void> = []
-  private errorListeners: Array<(error: unknown) => void> = []
-  private timer: number | undefined
-  private cursor: number = 0
-  private closed: boolean = false
-
-  onMessage(listener: (message: SseMessage) => void): () => void {
-    this.messageListeners.push(listener)
-    return () => {
-      this.messageListeners = this.messageListeners.filter((item) => item !== listener)
-    }
-  }
-
-  onError(listener: (error: unknown) => void): () => void {
-    this.errorListeners.push(listener)
-    return () => {
-      this.errorListeners = this.errorListeners.filter((item) => item !== listener)
-    }
-  }
-
-  startScript(payloads: string[], intervalMs: number): void {
-    this.cursor = 0
-    const pump = () => {
-      if (this.closed || this.cursor >= payloads.length) {
-        return
-      }
-      const data = payloads[this.cursor]
-      this.cursor += 1
-      this.messageListeners.forEach((listener) => listener({ data }))
-      this.timer = setTimeout(pump, intervalMs) as unknown as number
-    }
-    this.timer = setTimeout(pump, intervalMs) as unknown as number
-  }
-
-  close(): void {
-    this.closed = true
-    if (this.timer !== undefined) {
-      clearTimeout(this.timer)
-      this.timer = undefined
-    }
-  }
-}
-
-class MockWebSocketConnection implements WebSocketConnection {
-  private messageListeners: Array<(payload: string) => void> = []
-  private errorListeners: Array<(error: unknown) => void> = []
-  private closeListeners: Array<() => void> = []
-  private timer: number | undefined
-  private cursor: number = 0
-  private closed: boolean = false
-  private started: boolean = false
-
-  onMessage(listener: (payload: string) => void): () => void {
-    this.messageListeners.push(listener)
-    return () => {
-      this.messageListeners = this.messageListeners.filter((item) => item !== listener)
-    }
-  }
-
-  onError(listener: (error: unknown) => void): () => void {
-    this.errorListeners.push(listener)
-    return () => {
-      this.errorListeners = this.errorListeners.filter((item) => item !== listener)
-    }
-  }
-
-  onClose(listener: () => void): () => void {
-    this.closeListeners.push(listener)
-    return () => {
-      this.closeListeners = this.closeListeners.filter((item) => item !== listener)
-    }
-  }
-
-  send(_payload: string): void {
-    if (this.started || this.closed) {
-      return
-    }
-    this.started = true
-    const frames = [
-      '{"choices":[{"delta":{"content":"# WebSocket Mock\\n\\n"},"finish_reason":null}]}',
-      '{"choices":[{"delta":{"content":"连接成功后开始推流。\\n\\n"},"finish_reason":null}]}',
-      '{"choices":[{"delta":{"content":"- 由 adapter 自动映射到 append\\n"},"finish_reason":null}]}',
-      '{"choices":[{"delta":{"content":"- close 时触发 finish\\n"},"finish_reason":null}]}',
-    ]
-
-    const pump = () => {
-      if (this.closed || this.cursor >= frames.length) {
-        this.closeListeners.forEach((listener) => listener())
-        return
-      }
-      const payload = frames[this.cursor]
-      this.cursor += 1
-      this.messageListeners.forEach((listener) => listener(payload))
-      this.timer = setTimeout(pump, 120) as unknown as number
-    }
-    this.timer = setTimeout(pump, 120) as unknown as number
-  }
-
-  close(): void {
-    this.closed = true
-    if (this.timer !== undefined) {
-      clearTimeout(this.timer)
-      this.timer = undefined
-    }
-  }
-}
+import { MarkdownStream, StreamingMarkdown } from '@ycj3/streaming-markdown'
 
 @Entry
 @Component
 struct QuickStartDemo {
   private stream: MarkdownStream = new MarkdownStream({ mode: 'word', interval: 20 })
-  private stopBinding?: () => void
-  private activeAdapter?: { stop(): void }
-  private localTimer: number | undefined
+  private timer: number = -1
 
   @State private status: string = 'idle'
 
   aboutToDisappear() {
-    this.stopAllInputs()
+    this.stopPlayback()
   }
 
-  private stopAllInputs() {
-    if (this.localTimer !== undefined) {
-      clearTimeout(this.localTimer)
-      this.localTimer = undefined
-    }
-    if (this.stopBinding) {
-      this.stopBinding()
-      this.stopBinding = undefined
-    }
-    if (this.activeAdapter) {
-      this.activeAdapter.stop()
-      this.activeAdapter = undefined
+  private stopPlayback(): void {
+    if (this.timer >= 0) {
+      clearTimeout(this.timer)
+      this.timer = -1
     }
   }
 
-  private resetForRun(label: string) {
-    this.stopAllInputs()
+  private resetForRun(label: string): void {
+    this.stopPlayback()
     this.stream.reset()
     this.status = label
   }
 
-  private runLocalMock() {
-    this.resetForRun('local-streaming')
-    const chunks = [
-      '# 本地模拟流\\n\\n',
-      '这是最小接入：直接调用 `append`。\\n\\n',
-      '- chunk 1\\n',
-      '- chunk 2\\n',
-      '最后调用 `finish()`。\\n',
-    ]
-    let idx = 0
-    const pump = () => {
-      if (idx >= chunks.length) {
+  private playChunks(chunks: string[], label: string): void {
+    this.resetForRun(label)
+
+    let index: number = 0
+    const pump = (): void => {
+      if (index >= chunks.length) {
         this.stream.finish()
+        this.timer = -1
         return
       }
-      this.stream.append(chunks[idx])
-      idx += 1
-      this.localTimer = setTimeout(pump, 120) as unknown as number
+      this.stream.append(chunks[index])
+      index += 1
+      this.timer = setTimeout((): void => pump(), 120) as number
     }
+
     pump()
   }
 
-  private runSseMock() {
-    this.resetForRun('sse-streaming')
-
-    const adapter = new SSEAdapter(openaiLikeProfile, async () => {
-      const conn = new MockSseConnection()
-      conn.startScript([
-        '{"choices":[{"delta":{"content":"# SSE Mock\\n\\n"},"finish_reason":null}]}',
-        '{"choices":[{"delta":{"content":"SSE event data -> profile -> append。\\n\\n"},"finish_reason":null}]}',
-        '{"choices":[{"delta":{"content":"可以先用 mock 验证渲染链路。\\n"},"finish_reason":null}]}',
-        '[DONE]',
-      ], 120)
-      return conn
-    })
-
-    this.stopBinding = bindAdapterToStream(adapter, this.stream)
-    this.activeAdapter = adapter
-    void adapter.start({})
+  private runLocalMock(): void {
+    this.playChunks([
+      '# 本地模拟流\n\n',
+      '直接调用 `append` 持续追加。\n\n',
+      '- chunk 1\n',
+      '- chunk 2\n',
+      '最后调用 `finish()`。\n',
+    ], 'local-streaming')
   }
 
-  private runWebSocketMock() {
-    this.resetForRun('websocket-streaming')
+  private runSseMock(): void {
+    this.playChunks([
+      '# SSE (mock)\n\n',
+      '用数组模拟 SSE data 分帧输入。\n\n',
+      '真实接入时：收到每个 data 就 `append`。\n',
+      '结束标记（如 [DONE]）后 `finish`。\n',
+    ], 'sse-streaming')
+  }
 
-    const adapter = new WebSocketAdapter(openaiLikeProfile)
-    this.stopBinding = bindAdapterToStream(adapter, this.stream)
-    this.activeAdapter = adapter
-
-    void adapter.start({
-      connect: async () => new MockWebSocketConnection(),
-      initialPayload: { model: 'demo', input: 'start' },
-      finishOnClose: true,
-    })
+  private runWebSocketMock(): void {
+    this.playChunks([
+      '# WebSocket (mock)\n\n',
+      '用数组模拟 WS message 分帧输入。\n\n',
+      '真实接入时：每条 message -> `append`。\n',
+      '连接关闭（或业务结束）后 `finish`。\n',
+    ], 'websocket-streaming')
   }
 
   build() {
@@ -213,15 +76,15 @@ struct QuickStartDemo {
       Text(`status: ${this.status}`).fontSize(14)
 
       Row({ space: 8 }) {
-        Button('本地模拟流').onClick(() => this.runLocalMock())
-        Button('SSE(mock)').onClick(() => this.runSseMock())
-        Button('WebSocket(mock)').onClick(() => this.runWebSocketMock())
+        Button('本地模拟流').onClick((): void => this.runLocalMock())
+        Button('SSE(mock)').onClick((): void => this.runSseMock())
+        Button('WebSocket(mock)').onClick((): void => this.runWebSocketMock())
       }
 
       Scroll() {
         StreamingMarkdown({
           stream: this.stream,
-          onComplete: () => {
+          onComplete: (): void => {
             this.status = 'completed'
           },
         })

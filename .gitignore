@@ -1,6 +1,8 @@
 # Build outputs
 build/
 .cxx/
+.hvigor/
+hvigor/
 
 # IDE
 .idea/
@@ -17,3 +19,6 @@ local.properties
 
 # Logs
 *.log
+
+# Temporary: ignore docs until project stabilizes
+docs/

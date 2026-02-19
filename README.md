@@ -6,15 +6,40 @@ HarmonyOS ArkTS 流式 Markdown 渲染器（V2 stream-only）。
 
 ## 安装
 
+### 方式一：ohpm install（推荐）
+
 ```bash
 ohpm install @ycj3/streaming-markdown
+```
+
+### 方式二：本地 file 依赖（开发调试）
+
+在你的 `entry/oh-package.json5` 中添加：
+
+```json5
+{
+  dependencies: {
+    "@ycj3/streaming-markdown": "file:../../streaming-markdown",
+  },
+}
+```
+
+在你的 `build-profile.json5` 中添加模块声明：
+
+```json5
+{
+  modules: [
+    { name: "entry", srcPath: "./entry" },
+    { name: "streaming_markdown", srcPath: "../streaming-markdown" },
+  ],
+}
 ```
 
 ## 10 分钟快速开始（复制即用）
 
 最短路径：直接复制 `examples/minimal-v2/QuickStartDemo.ets` 到你的页面。
 
-1. 安装依赖。
+1. 先完成“安装”章节中的任一方式并同步工程。
 2. 打开 `examples/minimal-v2/QuickStartDemo.ets`，整页复制到你的 ArkTS 页面。
 3. 运行后点击：`本地模拟流` / `SSE(mock)` / `WebSocket(mock)`。
 4. 看到渲染区持续更新，状态最终变为 `completed`。
@@ -50,8 +75,8 @@ struct MinimalPage {
 ## 三种输入示例
 
 - 本地模拟流（直接 `append` + `finish`）
-- SSE（mock，`[DONE]` 自动触发 `finish`）
-- WebSocket（mock，`close` 自动触发 `finish`）
+- SSE（mock，分帧数据逐步 `append`，末尾 `finish`）
+- WebSocket（mock，分帧消息逐步 `append`，末尾 `finish`）
 
 完整可运行页面见：`examples/minimal-v2/QuickStartDemo.ets`。
 
