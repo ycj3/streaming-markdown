@@ -1,0 +1,11 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Streaming Markdown QuickStart entry module",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ycj3/streaming-markdown": "file:../../../packages/streaming-markdown"
+  }
+}

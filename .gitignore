@@ -1,6 +1,8 @@
 # Build outputs
 build/
 .cxx/
+.hvigor/
+hvigor/
 
 # IDE
 .idea/
@@ -8,6 +10,7 @@ build/
 
 # Dependencies
 oh_modules/
+node_modules/
 
 # Local configuration
 local.properties
