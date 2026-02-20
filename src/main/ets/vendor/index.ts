@@ -9,3 +9,4 @@ export { WebSocketAdapter } from './adapters/websocket-adapter'
 export type { WebSocketConnection, WebSocketStartRequest } from './adapters/websocket-adapter'
 
 export { openaiLikeProfile } from './profiles/openai-profile'
+export { geminiLikeProfile } from './profiles/gemini-profile'

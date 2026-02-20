@@ -3,6 +3,7 @@ import { MarkdownStream } from '../src/main/ets/core/stream'
 import { SSEAdapter, SseConnection, SseMessage } from '../src/main/ets/vendor/adapters/sse-adapter'
 import { WebSocketAdapter, WebSocketConnection, WebSocketStartRequest } from '../src/main/ets/vendor/adapters/websocket-adapter'
 import { openaiLikeProfile } from '../src/main/ets/vendor/profiles/openai-profile'
+import { geminiLikeProfile } from '../src/main/ets/vendor/profiles/gemini-profile'
 import { bindAdapterToStream } from '../src/main/ets/vendor/wiring'
 import { suite, test } from './test-harness'
 
@@ -114,6 +115,19 @@ suite('vendor:profile', () => {
 
     const error = openaiLikeProfile.extractError({ error: { message: 'invalid request' } })
     assert.equal(error?.message, 'invalid request')
+  })
+
+  test('gemini profile maps delta / done / error', async () => {
+    const delta = geminiLikeProfile.extractDelta({
+      candidates: [{ content: { parts: [{ text: 'Hello ' }, { text: 'Gemini' }] }, finishReason: null }],
+    })
+    assert.equal(delta, 'Hello Gemini')
+
+    assert.equal(geminiLikeProfile.isDone({ candidates: [{ finishReason: 'STOP' }] }), true)
+    assert.equal(geminiLikeProfile.isDone({ candidates: [{ finishReason: null }] }), false)
+
+    const error = geminiLikeProfile.extractError({ error: { message: 'permission denied' } })
+    assert.equal(error?.message, 'permission denied')
   })
 })
 
