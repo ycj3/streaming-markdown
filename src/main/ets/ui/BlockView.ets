@@ -377,10 +377,26 @@ export struct BlockView {
       // Header row
       Row() {
         ForEach(tableBlock.headers, (header: string, index: number) => {
-          Text(header)
-            .fontSize(14)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#1A1A1A')
+          Text() {
+            ForEach(this.parseSegments(header), (seg: TextSegment) => {
+              Span(seg.content)
+                .fontSize(this.getSegmentFontSize(seg, 14))
+                .fontFamily(this.getSegmentFontFamily(seg))
+                .fontColor(this.getSegmentFontColor(seg, '#1A1A1A'))
+                .fontWeight(FontWeight.Bold)
+                .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
+                .decoration({
+                  type: this.getSegmentDecorationType(seg),
+                  color: this.getSegmentFontColor(seg, '#1A1A1A')
+                })
+                .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : seg.isMath ? { color: '#EEF3FF', radius: 4 } : undefined)
+                .onClick(() => {
+                  if (seg.isLink && seg.linkUrl) {
+                    this.openLink(seg.linkUrl);
+                  }
+                })
+            })
+          }
             .textAlign(this.getAlignment(tableBlock.alignments[index]))
             .padding({ left: 8, right: 8, top: 8, bottom: 8 })
             .layoutWeight(1)
@@ -394,9 +410,26 @@ export struct BlockView {
       ForEach(tableBlock.rows, (row: string[], rowIndex: number) => {
         Row() {
           ForEach(row, (cell: string, colIndex: number) => {
-            Text(cell)
-              .fontSize(14)
-              .fontColor('#333333')
+            Text() {
+              ForEach(this.parseSegments(cell), (seg: TextSegment) => {
+                Span(seg.content)
+                  .fontSize(this.getSegmentFontSize(seg, 14))
+                  .fontFamily(this.getSegmentFontFamily(seg))
+                  .fontColor(this.getSegmentFontColor(seg, '#333333'))
+                  .fontWeight(seg.isBold ? FontWeight.Bold : FontWeight.Normal)
+                  .fontStyle(seg.isItalic ? FontStyle.Italic : FontStyle.Normal)
+                  .decoration({
+                    type: this.getSegmentDecorationType(seg),
+                    color: this.getSegmentFontColor(seg, '#333333')
+                  })
+                  .textBackgroundStyle(seg.isCode ? { color: '#F5F5F5', radius: 4 } : seg.isMath ? { color: '#EEF3FF', radius: 4 } : undefined)
+                  .onClick(() => {
+                    if (seg.isLink && seg.linkUrl) {
+                      this.openLink(seg.linkUrl);
+                    }
+                  })
+              })
+            }
               .textAlign(this.getAlignment(tableBlock.alignments[colIndex]))
               .padding({ left: 8, right: 8, top: 8, bottom: 8 })
               .layoutWeight(1)

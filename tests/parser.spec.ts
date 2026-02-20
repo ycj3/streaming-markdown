@@ -540,3 +540,25 @@ suite('parser:guardrail', () => {
     assert.ok(total >= 30, `parser sample count should be >= 30, got ${total}`)
   })
 })
+
+suite('parser:table-inline-rendering', () => {
+  test('table cell markdown supports inline bold rendering segments', () => {
+    const blocks = parseBlocks('| col |\n| --- |\n| **bold** |\n\n')
+    assert.equal(blocks.length, 1)
+    assert.equal(blocks[0].type, 'table')
+
+    const table = blocks[0] as {
+      type: 'table'
+      rows: string[][]
+    }
+
+    assert.equal(table.rows.length, 1)
+    assert.equal(table.rows[0].length, 1)
+    assert.equal(table.rows[0][0], '**bold**')
+
+    const segments = toSegmentView(table.rows[0][0])
+    assert.equal(segments.length, 1)
+    assert.equal(segments[0].content, 'bold')
+    assert.equal(segments[0].isBold, true)
+  })
+})
