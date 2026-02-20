@@ -1,0 +1,8 @@
+{
+  "name": "streaming-markdown-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "test": "bash tools/scripts/test-all.sh"
+  }
+}

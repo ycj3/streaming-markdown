@@ -10,6 +10,7 @@ hvigor/
 
 # Dependencies
 oh_modules/
+node_modules/
 
 # Local configuration
 local.properties
@@ -19,6 +20,3 @@ local.properties
 
 # Logs
 *.log
-
-# Temporary: ignore docs until project stabilizes
-docs/

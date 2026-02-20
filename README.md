@@ -1,127 +1,35 @@
-# @ycj3/streaming-markdown
+# streaming-markdown monorepo
 
-HarmonyOS ArkTS 流式 Markdown 渲染器（V2 stream-only）。
+本仓库采用 monorepo 结构。
 
 > [English Version](./README_EN.md)
 
-## 安装
+## 目录说明
 
-### 方式一：ohpm install（推荐）
+- `packages/streaming-markdown`：HarmonyOS 流式 Markdown 库（`@ycj3/streaming-markdown`）
+- `apps/quickstart-harmony`：可运行的 HarmonyOS 快速示例（含 Gemini relay 后端）
+- `tools/scripts`：工作区脚本
+
+## 常用命令
+
+- 运行库测试：
 
 ```bash
-ohpm install @ycj3/streaming-markdown
+cd packages/streaming-markdown
+bash scripts/run-tests.sh
 ```
 
-### 方式二：本地 file 依赖（开发调试）
+- 启动 quickstart 后端：
 
-在你的 `entry/oh-package.json5` 中添加：
-
-```json5
-{
-  dependencies: {
-    "@ycj3/streaming-markdown": "file:../../streaming-markdown",
-  },
-}
+```bash
+cd apps/quickstart-harmony/backend
+npm install
+export GEMINI_API_KEY="<你的 key>"
+npm run dev
 ```
 
-在你的 `build-profile.json5` 中添加模块声明：
+- 工作区测试快捷命令：
 
-```json5
-{
-  modules: [
-    { name: "entry", srcPath: "./entry" },
-    { name: "streaming_markdown", srcPath: "../streaming-markdown" },
-  ],
-}
+```bash
+bash tools/scripts/test-all.sh
 ```
-
-## 10 分钟快速开始（复制即用）
-
-最短路径：直接复制 `examples/minimal-v2/QuickStartDemo.ets` 到你的页面。
-
-1. 先完成“安装”章节中的任一方式并同步工程。
-2. 打开 `examples/minimal-v2/QuickStartDemo.ets`，整页复制到你的 ArkTS 页面。
-3. 运行后点击：`本地模拟流` / `SSE(mock)` / `WebSocket(mock)`。
-4. 看到渲染区持续更新，状态最终变为 `completed`。
-
-说明：当前仓库此前没有可直接复制的 V2 最小示例，现新增目录 `examples/minimal-v2/`，不涉及旧示例迁移。
-
-## 最小接入代码（核心只有 append/finish）
-
-```typescript
-import { MarkdownStream, StreamingMarkdown } from '@ycj3/streaming-markdown'
-
-@Entry
-@Component
-struct MinimalPage {
-  private stream: MarkdownStream = new MarkdownStream({ mode: 'word', interval: 20 })
-
-  aboutToAppear() {
-    this.stream.append('# Hello\n\n')
-    this.stream.append('这是流式增量内容。\n')
-    this.stream.finish()
-  }
-
-  build() {
-    Scroll() {
-      StreamingMarkdown({ stream: this.stream })
-    }
-    .width('100%')
-    .height('100%')
-  }
-}
-```
-
-## 三种输入示例
-
-- 本地模拟流（直接 `append` + `finish`）
-- SSE（mock，分帧数据逐步 `append`，末尾 `finish`）
-- WebSocket（mock，分帧消息逐步 `append`，末尾 `finish`）
-
-完整可运行页面见：`examples/minimal-v2/QuickStartDemo.ets`。
-
-## V2 API（stream-only）
-
-### `MarkdownStream`
-
-```ts
-new MarkdownStream(options?)
-stream.append(chunk: string)
-stream.finish()
-stream.pause()
-stream.resume()
-stream.reset()
-stream.subscribe(listener)
-stream.onComplete(listener)
-```
-
-### `StreamingMarkdown`
-
-```ts
-StreamingMarkdown({
-  stream: MarkdownStream,
-  onComplete?: () => void
-})
-```
-
-## Demo 与生产接入差异
-
-- Demo 使用内存 mock 连接；生产改为真实网络连接或厂商 SDK。
-- Demo 使用 `openaiLikeProfile`；生产按厂商协议扩展 `VendorProfile`。
-- Demo 未覆盖鉴权、重试、超时、断线重连。
-- Demo 是单路文本流；生产如有多通道（tool/reasoning）需先分流再喂给 `stream`。
-
-## 相关文档
-
-- 10 分钟指南：`docs/quickstart-10min.md`
-- 厂商接入：`docs/vendor-integration.md`
-- 架构说明：`docs/architecture.md`
-
-## 环境要求
-
-- HarmonyOS API 6.0.1+
-- DevEco Studio 4.0+
-
-## 许可证
-
-Apache-2.0
