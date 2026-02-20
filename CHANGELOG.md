@@ -1,5 +1,23 @@
 # 更新日志
 
+## 2.0.0 (2026-02-19)
+
+### ⚠️ 破坏性变更
+- **V2 stream-only API**：移除 `start(text)` 与组件 `text/mode/interval` 输入方式
+- **新输入协议**：统一改为 `append(chunk) + finish()` 增量输入
+- **组件 API 调整**：`StreamingMarkdown` 改为 `StreamingMarkdown({ stream })`
+
+### ✨ 新功能
+- **真实增量流式渲染**：支持持续 `append` 输入并按模式节奏渲染
+- **Stream 生命周期能力**：新增 `pause` / `resume` / `reset` / `onReset`
+- **Vendor 适配层**：新增统一事件模型（`delta/done/error`）、SSE/WebSocket adapter 与 OpenAI-like profile
+- **V2 最小示例**：新增 `examples/minimal-v2/QuickStartDemo.ets`（本地流、SSE mock、WebSocket mock）
+
+### ✅ 质量改进
+- **测试覆盖补齐**：新增 parser/stream/vendor 测试，当前 47/47 通过
+- **性能路径清理**：热路径日志改为 debug gating（默认关闭）
+- **行内解析缓存**：`BlockView` 增加轻量 LRU 缓存，减少重复解析开销
+
 ## 1.2.0 (2026-02-17)
 
 ### ✨ 新功能
