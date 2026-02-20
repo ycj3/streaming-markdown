@@ -151,6 +151,28 @@ suite('vendor:sse-adapter', () => {
     adapter.stop()
     assert.equal(connection.closed, true)
   })
+
+  test('sse adapter supports gemini-style multi chunk stream and explicit done', async () => {
+    const stream = new MarkdownStream({ mode: 'char', interval: 1 })
+    const connection = new FakeSseConnection()
+    const adapter = new SSEAdapter(geminiLikeProfile, () => connection)
+    bindAdapterToStream(adapter, stream)
+
+    await adapter.start({})
+
+    connection.emitMessage('{"candidates":[{"content":{"parts":[{"text":"# RAG\\n\\n"}]},"index":0}]}')
+    connection.emitMessage('{"candidates":[{"content":{"parts":[{"text":"RAG 是一种检索增强生成方法。"}]},"index":0}]}')
+    connection.emitMessage('{"candidates":[{"finishReason":"STOP","index":0}]}')
+
+    await waitFor(() => stream.getState() === 'completed')
+    assert.deepEqual(stream.getBlocks(), [
+      { id: 0, type: 'heading', level: 1, text: 'RAG' },
+      { id: 1, type: 'paragraph', text: 'RAG 是一种检索增强生成方法。' },
+    ])
+
+    adapter.stop()
+    assert.equal(connection.closed, true)
+  })
 })
 
 suite('vendor:websocket-adapter', () => {
