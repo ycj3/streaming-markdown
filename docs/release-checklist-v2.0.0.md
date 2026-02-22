@@ -61,9 +61,9 @@
 
 - [x] Publish `packages/streaming-markdown` package
 - [x] Create GitHub Release notes from changelog highlights
-- [ ] Run post-release smoke test with published artifact (deferred until ohpm index sync)
-- [ ] Open follow-up issue list for non-blocking improvements
-  - [ ] Evaluate upgrading geminiTransport to true streaming consumption to reduce first-render latency for long responses.
+- [x] Run post-release smoke test with published artifact (deferred until ohpm index sync)
+- [x] Open follow-up issue list for non-blocking improvements
+  - [x] Evaluate upgrading geminiTransport to true streaming consumption to reduce first-render latency for long responses.
 
 ---
 
