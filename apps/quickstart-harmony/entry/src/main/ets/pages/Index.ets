@@ -1,53 +1,124 @@
 import { MarkdownStream, StreamingMarkdown } from '@ycj3/streaming-markdown'
 import { GeminiSSEClient, GeminiSSEClientOptions, GeminiSSEStartInput } from '../services/GeminiSSEClient'
+import { QwenSSEClient, QwenSSEClientOptions, QwenSSEStartInput } from '../services/QwenSSEClient'
 
 @Entry
 @Component
 struct Index {
   private stream: MarkdownStream = new MarkdownStream({ mode: 'word', interval: 20 })
-  private client: GeminiSSEClient | null = null
+  private geminiClient: GeminiSSEClient | null = null
+  private qwenClient: QwenSSEClient | null = null
+  private mountedProvider: string = ''
 
   @State private prompt: string = '请用 Markdown 解释什么是 RAG，并给一个表格示例。'
+  @State private provider: string = 'qwen'
+  @State private model: string = 'qwen-plus'
   @State private status: string = 'idle'
   @State private errorText: string = ''
+  @State private endpointBase: string = 'https://5d0f-103-190-179-39.ngrok-free.app'
 
-  private ensureClient(): GeminiSSEClient {
-    if (this.client) {
-      return this.client
+  private ensureGeminiClient(): GeminiSSEClient {
+    if (this.geminiClient) {
+      return this.geminiClient
     }
 
     const options = new GeminiSSEClientOptions()
-    options.endpoint = 'http://192.168.0.102:3000/api/gemini/stream'
-    options.defaultModel = 'gemini-3-flash-preview'
-    options.debug = false
+    options.endpoint = `${this.endpointBase}/api/gemini/stream`
+    options.defaultModel = 'gemini-2.5-flash'
+    options.debug = true
 
-    this.client = new GeminiSSEClient(this.stream, options)
-    return this.client
+    this.geminiClient = new GeminiSSEClient(this.stream, options)
+    return this.geminiClient
+  }
+
+  private ensureQwenClient(): QwenSSEClient {
+    if (this.qwenClient) {
+      return this.qwenClient
+    }
+
+    const options = new QwenSSEClientOptions()
+    options.endpoint = `${this.endpointBase}/api/qwen/stream`
+    options.defaultModel = 'qwen-plus'
+    options.debug = true
+
+    this.qwenClient = new QwenSSEClient(this.stream, options)
+    return this.qwenClient
+  }
+
+  private disposeMountedClient() {
+    if (this.mountedProvider === 'gemini' && this.geminiClient) {
+      this.geminiClient.dispose()
+      this.mountedProvider = ''
+      return
+    }
+
+    if (this.mountedProvider === 'qwen' && this.qwenClient) {
+      this.qwenClient.dispose()
+      this.mountedProvider = ''
+    }
+  }
+
+  private ensureMountedProvider(provider: string) {
+    if (this.mountedProvider === provider) {
+      return
+    }
+
+    this.disposeMountedClient()
+
+    const onError = (error: Error) => {
+      this.errorText = error.message
+      this.status = 'error'
+    }
+
+    if (provider === 'gemini') {
+      const client = this.ensureGeminiClient()
+      client.mount(onError)
+      this.mountedProvider = 'gemini'
+      return
+    }
+
+    const client = this.ensureQwenClient()
+    client.mount(onError)
+    this.mountedProvider = 'qwen'
+  }
+
+  private selectProvider(provider: string) {
+    this.provider = provider
+    if (provider === 'gemini') {
+      this.model = 'gemini-2.5-flash'
+      return
+    }
+    this.model = 'qwen-plus'
   }
 
   aboutToAppear() {
-    const client = this.ensureClient()
-    client.mount((error: Error) => {
-      this.errorText = error.message
-      this.status = 'error'
-    })
+    this.ensureMountedProvider(this.provider)
   }
 
   aboutToDisappear() {
-    if (this.client) {
-      this.client.dispose()
-    }
+    this.disposeMountedClient()
   }
 
   private async startStream() {
     this.errorText = ''
     this.status = 'streaming'
 
-    const input = new GeminiSSEStartInput()
-    input.prompt = this.prompt
-
     try {
-      const client = this.ensureClient()
+      this.ensureMountedProvider(this.provider)
+
+      if (this.provider === 'gemini') {
+        const input = new GeminiSSEStartInput()
+        input.prompt = this.prompt
+        input.model = this.model
+        const client = this.ensureGeminiClient()
+        await client.start(input)
+        return
+      }
+
+      const input = new QwenSSEStartInput()
+      input.prompt = this.prompt
+      input.model = this.model
+      const client = this.ensureQwenClient()
       await client.start(input)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -66,13 +137,32 @@ struct Index {
           .fontSize(12)
       }
 
+      Row({ space: 8 }) {
+        Button(this.provider === 'gemini' ? 'Gemini (selected)' : 'Gemini')
+          .onClick(() => {
+            this.selectProvider('gemini')
+          })
+
+        Button(this.provider === 'qwen' ? 'Qwen (selected)' : 'Qwen')
+          .onClick(() => {
+            this.selectProvider('qwen')
+          })
+      }
+      .width('100%')
+
+      TextArea({ text: this.model, placeholder: 'model name, e.g. qwen-plus / gemini-2.5-flash' })
+        .onChange((value: string) => {
+          this.model = value
+        })
+        .height(52)
+
       TextArea({ text: this.prompt })
         .onChange((value: string) => {
           this.prompt = value
         })
         .height(120)
 
-      Button('Send to Gemini')
+      Button(`Send (${this.provider})`)
         .onClick(async () => {
           await this.startStream()
         })
