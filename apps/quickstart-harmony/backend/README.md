@@ -1,7 +1,5 @@
 # SSE Relay 后端（Gemini / Qwen）
 
-> [English Version](./README_EN.md)
-
 ## 1) 安装依赖
 
 ```bash
