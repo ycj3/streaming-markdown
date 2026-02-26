@@ -2,7 +2,7 @@
 
 HarmonyOS ArkTS 流式 Markdown 渲染器。
 
-> [English Version](./README_EN.md)
+> [English Version](../../README_EN.md)
 
 ## 安装
 

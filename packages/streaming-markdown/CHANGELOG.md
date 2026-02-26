@@ -1,5 +1,17 @@
 # 更新日志
 
+## 2.1.0 (2026-02-26)
+
+### ✨ 新功能
+- **配置模型分组化**：`StreamingMarkdownConfig` 按 Markdown 功能分组（`heading` / `paragraph` / `list` / `blockquote` / `codeBlock` / `table` / `horizontalRule` / `inline` / `layout`）。
+
+### 🔧 改进
+- **文档结构统一**：README 改为以 `quickstart-harmony` 为统一演示入口，不再依赖旧 `examples/minimal-v2` 路径。
+- **列表排版优化**：修复列表 marker（圆点/序号/任务框）与文本的垂直对齐问题，阅读场景可读性更稳定。
+
+### ✅ 质量改进
+- **配置测试补齐**：新增 grouped config 覆盖测试并接入测试入口，当前测试 `53/53` 通过。
+
 ## 2.0.0 (2026-02-19)
 
 ### ⚠️ 破坏性变更
