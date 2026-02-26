@@ -1,12 +1,14 @@
 import { MarkdownStream } from '../core/stream'
 import { Block, BlockDiff } from '../core/protocol'
 import { BlockView } from './BlockView'
+import { resolveStreamingMarkdownConfig, StreamingMarkdownConfig, StreamingMarkdownResolvedConfig } from './config'
 
 /**
  * Streaming Markdown component props
  */
 export interface StreamingMarkdownProps {
   stream: MarkdownStream
+  config?: StreamingMarkdownConfig
   /**
    * Callback when streaming completes
    */
@@ -16,6 +18,7 @@ export interface StreamingMarkdownProps {
 @Component
 export struct StreamingMarkdown {
   stream: MarkdownStream = new MarkdownStream()
+  @Prop config?: StreamingMarkdownConfig
   onComplete?: () => void
 
   @State private blocks: Block[] = []
@@ -75,11 +78,15 @@ export struct StreamingMarkdown {
     }
   }
 
+  private getResolvedConfig(): StreamingMarkdownResolvedConfig {
+    return resolveStreamingMarkdownConfig(this.config)
+  }
+
   build() {
     List() {
       ForEach(this.blocks, (block: Block) => {
         ListItem() {
-          BlockView({ block: block })
+          BlockView({ block: block, config: this.getResolvedConfig() })
         }
       }, (block: Block) => {
         if (block.type === 'table') {
@@ -88,5 +95,11 @@ export struct StreamingMarkdown {
         return block.id.toString() + "_" + block.text.length
       })
     }
+    .padding({
+      left: this.getResolvedConfig().contentPadding.left,
+      right: this.getResolvedConfig().contentPadding.right,
+      top: this.getResolvedConfig().contentPadding.top,
+      bottom: this.getResolvedConfig().contentPadding.bottom
+    })
   }
 }
