@@ -1,6 +1,7 @@
 import './parser.spec'
 import './stream.spec'
 import './vendor.spec'
+import './ui-config.spec'
 import { runAllTests } from './test-harness'
 
 async function main(): Promise<void> {
