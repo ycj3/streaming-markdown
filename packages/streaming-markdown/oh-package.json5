@@ -1,8 +1,8 @@
 {
   name: "@ycj3/streaming-markdown",
-  version: "2.0.0",
+  version: "2.1.0",
   author: "Carlson carlsonyuandev@gmail.com",
-  description: "HarmonyOS ArkTS 流式 Markdown 渲染器（V2 stream-only），支持 append/finish 增量输入与 LLM 厂商适配层。",
+  description: "HarmonyOS ArkTS 流式 Markdown 渲染器",
   main: "src/main/ets/index.ets",
   homepage: "https://github.com/ycj3",
   repository: "https://github.com/ycj3/streaming-markdown",

@@ -1,8 +1,6 @@
 # streaming-markdown
 
-> [English Version](./README_EN.md)
-
-## 1. Overview
+## 1. 简介
 
 `streaming-markdown` 是一个面向 HarmonyOS 的流式 Markdown 渲染库（`@ycj3/streaming-markdown`），用于在 AI/LLM 输出场景下边接收边渲染，减少整段重刷和布局跳动。
 
@@ -10,7 +8,7 @@
 - 核心库：`packages/streaming-markdown`
 - 业务示例：`apps/quickstart-harmony`
 
-## 2. Features
+## 2. 功能列表
 
 支持的 Markdown 语法（当前实现）：
 
@@ -37,7 +35,7 @@
 - 通过 `MarkdownStream.finish()` 标记流结束
 - UI 使用 `StreamingMarkdown({ stream })` 自动增量更新
 
-## 3. Installation
+## 3. 安装
 
 ### 方式一：安装发布包（推荐）
 
@@ -68,62 +66,10 @@ ohpm install @ycj3/streaming-markdown
 }
 ```
 
-## 4. Usage
+## 4. 快速开始
 
-### 页面中渲染流式 Markdown（最小接入）
-
-```ts
-import { MarkdownStream, StreamingMarkdown } from '@ycj3/streaming-markdown'
-
-@Entry
-@Component
-struct MessagePage {
-  private stream: MarkdownStream = new MarkdownStream({ mode: 'word', interval: 20 })
-
-  aboutToAppear() {
-    this.stream.append('# Hello\n\n')
-    this.stream.append('这是流式返回的第一段内容。\n')
-    this.stream.append('- item 1\n- item 2\n')
-    this.stream.finish()
-  }
-
-  build() {
-    Scroll() {
-      StreamingMarkdown({
-        stream: this.stream,
-        onComplete: () => {
-          console.info('stream completed')
-        },
-      })
-    }
-    .width('100%')
-    .height('100%')
-  }
-}
-```
-
-### 对接 SSE / WebSocket 等流式接口
-
-```ts
-import { MarkdownStream } from '@ycj3/streaming-markdown'
-
-const stream = new MarkdownStream({ mode: 'word', interval: 20 })
-
-// 伪代码：把你的网络层 delta 持续喂给 stream
-client.onDelta((text: string) => {
-  stream.append(text)
-})
-
-client.onDone(() => {
-  stream.finish()
-})
-
-client.onError((_err: Error) => {
-  // 业务可选：出错时结束当前流，避免界面挂起
-  stream.finish()
-})
-```
-
-完整示例可参考：
-- [`streaming-markdown 快速开始（本地流 / SSE mock / WebSocket mock）`](./packages/streaming-markdown/examples/minimal-v2/QuickStartDemo.ets)
-- [`Gemini 3 快速开始（真实请求 + 流式渲染）`](./apps/quickstart-harmony/entry/src/main/ets/pages/Index.ets)
+- 快速开始入口：[quickstart-harmony](https://github.com/ycj3/streaming-markdown/tree/main/apps/quickstart-harmony)
+- 建议直接运行该工程，体验：
+  - AI 真流渲染
+  - Preset 样式切换（含浅色/深色）
+  - `StreamingMarkdownConfig` 分组配置效果

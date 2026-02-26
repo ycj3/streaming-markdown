@@ -11,6 +11,7 @@
   "include": [
     "../src/main/ets/core/**/*.ts",
     "../src/main/ets/vendor/**/*.ts",
+    "../src/main/ets/ui/config.ts",
     "./**/*.ts"
   ]
 }
