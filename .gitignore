@@ -20,3 +20,6 @@ local.properties
 
 # Logs
 *.log
+
+# Local release config
+tools/release/.release.env
