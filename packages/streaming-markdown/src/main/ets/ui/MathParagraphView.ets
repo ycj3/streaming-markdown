@@ -20,9 +20,19 @@ export struct MathParagraphView {
 
   private webController: webview.WebviewController = new webview.WebviewController()
   @State private pageReady: boolean = false
+  @State private contentHeight: number = 88
+  private measureTimers: number[] = []
+  private lastRenderedPayload: string = ''
 
   aboutToAppear() {
     this.tryRenderParagraph()
+  }
+
+  aboutToDisappear() {
+    for (const timer of this.measureTimers) {
+      clearTimeout(timer)
+    }
+    this.measureTimers = []
   }
 
   private toRenderSegments(text: string): RenderSegment[] {
@@ -49,10 +59,81 @@ export struct MathParagraphView {
       return
     }
     const payload = JSON.stringify(this.toRenderSegments(this.text))
+    if (payload === this.lastRenderedPayload) {
+      return
+    }
+    this.lastRenderedPayload = payload
+
+    for (const timer of this.measureTimers) {
+      clearTimeout(timer)
+    }
+    this.measureTimers = []
+
     const script = `window.renderMixed(${payload});`
-    this.webController.runJavaScript(script).catch((error: Error) => {
-      console.error(`[MathParagraphView] render paragraph failed: ${JSON.stringify(error)}`)
-    })
+    this.webController
+      .runJavaScript(script)
+      .then(() => {
+        this.measureContentHeight(0)
+        this.measureContentHeight(120)
+      })
+      .catch((error: Error) => {
+        console.error(`[MathParagraphView] render paragraph failed: ${JSON.stringify(error)}`)
+      })
+  }
+
+  private parseMeasuredHeight(raw: Object): number {
+    const text = String(raw).trim()
+    const normalized = text.replace(/^"+|"+$/g, '')
+    const parsed = Number(normalized)
+    if (!Number.isFinite(parsed)) {
+      return 0
+    }
+    return Math.floor(parsed)
+  }
+
+  private updateHeightIfNeeded(nextHeight: number) {
+    const minHeight = 72
+    const maxHeight = 1200
+    const clamped = Math.min(maxHeight, Math.max(minHeight, nextHeight))
+    if (Math.abs(this.contentHeight - clamped) >= 2) {
+      this.contentHeight = clamped
+    }
+  }
+
+  private measureContentHeight(delayMs: number) {
+    const run = () => {
+      if (!this.pageReady) {
+        return
+      }
+      const measureScript =
+        `(function(){` +
+        `var root=document.getElementById('math-root');` +
+        `var rootH=root?Math.ceil(root.getBoundingClientRect().height):0;` +
+        `var bodyH=Math.ceil(document.body?document.body.scrollHeight:0);` +
+        `var docH=Math.ceil(document.documentElement?document.documentElement.scrollHeight:0);` +
+        `return String(Math.max(rootH,bodyH,docH)+8);` +
+        `})()`
+      this.webController
+        .runJavaScript(measureScript)
+        .then((value: Object) => {
+          const measured = this.parseMeasuredHeight(value)
+          if (measured > 0) {
+            this.updateHeightIfNeeded(measured)
+          }
+        })
+        .catch((error: Error) => {
+          console.error(`[MathParagraphView] measure height failed: ${JSON.stringify(error)}`)
+        })
+    }
+
+    if (delayMs <= 0) {
+      run()
+      return
+    }
+    const timer: number = setTimeout(() => {
+      run()
+    }, delayMs)
+    this.measureTimers.push(timer)
   }
 
   build() {
@@ -66,10 +147,7 @@ export struct MathParagraphView {
         this.pageReady = true
         this.tryRenderParagraph()
       })
-      .onAppear(() => {
-        this.tryRenderParagraph()
-      })
       .width('100%')
-      .height(220)
+      .height(this.contentHeight)
   }
 }
