@@ -1,6 +1,6 @@
 {
   name: "@ycj3/streaming-markdown",
-  version: "2.1.0",
+  version: "2.1.1",
   author: "Carlson carlsonyuandev@gmail.com",
   description: "HarmonyOS ArkTS 流式 Markdown 渲染器",
   main: "src/main/ets/index.ets",
