@@ -54,6 +54,22 @@ struct Index {
     '| heading | ready |\n' +
     '| paragraph | ready |\n'
 
+  private readonly katexDemoMarkdown: string =
+    '# KaTeX 数学公式示例\n\n' +
+    '这段内容用于演示在流式 Markdown 中混排文本与公式。\n\n' +
+    '## 行内公式\n\n' +
+    '爱因斯坦质能方程：$E = mc^2$，二次方程求根：$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$。\n\n' +
+    '## 块级公式\n\n' +
+    '$$\n' +
+    '\\int_a^b f(x)\\,dx = F(b) - F(a)\n' +
+    '$$\n\n' +
+    '$$\n' +
+    '\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}\n' +
+    '$$\n\n' +
+    '## 混排段落\n\n' +
+    '在 Transformer 中，注意力计算常写为 $\\mathrm{softmax}(QK^T/\\sqrt{d_k})V$，并与普通 Markdown 的 **加粗**、`inline code`、[链接](https://katex.org) 共存。\n\n' +
+    '> 说明：该页面使用项目内置 KaTeX 静态资源进行渲染。\n'
+
   private ensureGeminiClient(): GeminiSSEClient {
     if (this.geminiClient) {
       return this.geminiClient
@@ -322,6 +338,14 @@ struct Index {
     this.stream.finish()
   }
 
+  private loadKatexDemoMarkdown() {
+    this.errorText = ''
+    this.status = 'streaming'
+    this.stream.reset()
+    this.stream.append(this.katexDemoMarkdown)
+    this.stream.finish()
+  }
+
   build() {
     Column({ space: 10 }) {
       if (this.page === 'home') {
@@ -463,10 +487,20 @@ struct Index {
         }
         .width('100%')
 
-        Button('加载本地 Markdown 预览')
-          .onClick(() => {
-            this.loadPreviewMarkdown()
-          })
+        Row({ space: 8 }) {
+          Button('加载本地 Markdown 预览')
+            .layoutWeight(1)
+            .onClick(() => {
+              this.loadPreviewMarkdown()
+            })
+
+          Button('加载 KaTeX 示例')
+            .layoutWeight(1)
+            .onClick(() => {
+              this.loadKatexDemoMarkdown()
+            })
+        }
+        .width('100%')
 
         Scroll() {
           StreamingMarkdown({
