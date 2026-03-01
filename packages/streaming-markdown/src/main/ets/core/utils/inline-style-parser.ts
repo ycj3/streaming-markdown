@@ -64,7 +64,7 @@ class Tokenizer {
         if (math) {
           const isDisplay =
             hasDoubleDelimiter &&
-            this.shouldTreatDoubleDollarAsDisplay(this.pos, math.newPos);
+            this.shouldTreatDoubleDollarAsDisplay(this.pos, math.newPos, math.content);
           tokens.push({
             type: isDisplay ? TokenType.DISPLAY_MATH : TokenType.INLINE_MATH,
             value: math.content,
@@ -199,7 +199,16 @@ class Tokenizer {
    * - Treat as display math only when it is effectively isolated on its own line.
    * - If embedded in sentence text, treat as inline math for better UX compatibility.
    */
-  private shouldTreatDoubleDollarAsDisplay(startPos: number, endPos: number): boolean {
+  private shouldTreatDoubleDollarAsDisplay(
+    startPos: number,
+    endPos: number,
+    content: string
+  ): boolean {
+    // If equation body contains explicit line breaks, prefer block display.
+    if (content.includes("\n") || content.includes("\r") || content.includes("\\n")) {
+      return true;
+    }
+
     const prev = this.findPreviousNonWhitespace(startPos - 1);
     const next = this.findNextNonWhitespace(endPos);
 

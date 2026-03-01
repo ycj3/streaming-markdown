@@ -131,6 +131,11 @@
 
       function normalizeLatex(input) {
         var latex = (input || '').trim();
+        // Some streams keep escaped newlines as literal "\n"/"\r".
+        // Restore them so KaTeX receives multi-line display math correctly.
+        latex = latex.replace(/\\r\\n/g, '\n');
+        latex = latex.replace(/\\n/g, '\n');
+        latex = latex.replace(/\\r/g, '\n');
         // ArkTS/JS string escaping can turn \f in \frac into form-feed (U+000C).
         // Recover it before command normalization.
         latex = latex.replace(/\u000c/g, 'f');

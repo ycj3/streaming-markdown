@@ -125,32 +125,6 @@ export struct BlockView {
     return false
   }
 
-  private getMathParagraphHeight(text: string): number {
-    const segments = this.parseSegments(text)
-    let displayCount = 0
-    let inlineCount = 0
-    let plainLength = 0
-    for (const seg of segments) {
-      if (seg.isMathDisplay) {
-        displayCount++
-      } else if (seg.isMath) {
-        inlineCount++
-      } else {
-        plainLength += seg.content.length
-      }
-    }
-
-    const textLines = Math.max(1, Math.ceil(plainLength / 42))
-    const estimated = textLines * 28 + inlineCount * 10 + displayCount * 140 + 20
-    if (estimated < 72) {
-      return 72
-    }
-    if (estimated > 620) {
-      return 620
-    }
-    return estimated
-  }
-
   build() {
     Column() {
       if (this.block.type === 'heading') {
@@ -183,7 +157,6 @@ export struct BlockView {
             text: this.block.text
           })
             .width('100%')
-            .height(this.getMathParagraphHeight(this.block.text))
             .margin({ bottom: this.config.spacing.paragraphBottom })
         } else {
           Text() {

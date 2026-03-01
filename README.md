@@ -73,3 +73,8 @@ ohpm install @ycj3/streaming-markdown
   - AI 真流渲染
   - Preset 样式切换（含浅色/深色）
   - `StreamingMarkdownConfig` 分组配置效果
+
+## 相关阅读
+
+- [为什么在 ArkTS / 鸿蒙上，流式 Markdown 不能直接照抄 React？](https://zhuanlan.zhihu.com/p/2003097595975852127)
+- [ArkTS 实战：流式 Markdown + LaTeX 渲染架构与优化方向](https://zhuanlan.zhihu.com/p/2011539546618213108)

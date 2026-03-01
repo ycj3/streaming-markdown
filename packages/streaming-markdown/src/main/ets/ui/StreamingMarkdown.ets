@@ -1,5 +1,5 @@
 import { MarkdownStream } from '../core/stream'
-import { Block, BlockDiff } from '../core/protocol'
+import { Block, BlockDiff, ParagraphBlock } from '../core/protocol'
 import { BlockView } from './BlockView'
 import { resolveStreamingMarkdownConfig, StreamingMarkdownConfig, StreamingMarkdownResolvedConfig } from './config'
 
@@ -18,7 +18,7 @@ export interface StreamingMarkdownProps {
 @Component
 export struct StreamingMarkdown {
   stream: MarkdownStream = new MarkdownStream()
-  @Prop config?: StreamingMarkdownConfig
+  @Prop config: StreamingMarkdownConfig = {}
   onComplete?: () => void
 
   @State private blocks: Block[] = []
@@ -82,9 +82,66 @@ export struct StreamingMarkdown {
     return resolveStreamingMarkdownConfig(this.config)
   }
 
+  private isMathFenceParagraph(block: Block): boolean {
+    if (block.type !== 'paragraph') {
+      return false
+    }
+    const paragraph = block as ParagraphBlock
+    return paragraph.text.trim() === '$$'
+  }
+
+  /**
+   * The reducer currently closes paragraph on every newline, so block math written as:
+   * $$\n...equation...\n$$
+   * may arrive as three paragraph blocks. Re-join this shape at render time.
+   */
+  private getDisplayBlocks(): Block[] {
+    const result: Block[] = []
+
+    for (let i = 0; i < this.blocks.length; i++) {
+      const current = this.blocks[i]
+      if (!this.isMathFenceParagraph(current)) {
+        result.push(current)
+        continue
+      }
+
+      let closeIndex = -1
+      const equationLines: string[] = []
+      for (let j = i + 1; j < this.blocks.length; j++) {
+        const candidate = this.blocks[j]
+        if (this.isMathFenceParagraph(candidate)) {
+          closeIndex = j
+          break
+        }
+        if (candidate.type !== 'paragraph') {
+          closeIndex = -1
+          break
+        }
+        const paragraphCandidate = candidate as ParagraphBlock
+        equationLines.push(paragraphCandidate.text)
+      }
+
+      if (closeIndex > i + 1) {
+        const mergedText = `$$\n${equationLines.join('\n')}\n$$`
+        const mergedBlock: ParagraphBlock = {
+          id: current.id,
+          type: 'paragraph',
+          text: mergedText
+        }
+        result.push(mergedBlock)
+        i = closeIndex
+        continue
+      }
+
+      result.push(current)
+    }
+
+    return result
+  }
+
   build() {
     List() {
-      ForEach(this.blocks, (block: Block) => {
+      ForEach(this.getDisplayBlocks(), (block: Block) => {
         ListItem() {
           BlockView({ block: block, config: this.getResolvedConfig() })
         }
